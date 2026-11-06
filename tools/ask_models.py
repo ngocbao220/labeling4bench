@@ -11,6 +11,7 @@ Chạy:
   python3 tools/ask_models.py --manifest manifests/10154_2.jsonl --fake --out out/fake.jsonl   # đáp án ngẫu nhiên để thử stats/notebook
 """
 import argparse, base64, glob, json, os, random, re, sys, urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import ui
 
@@ -157,20 +158,25 @@ def main():
     rnd = random.Random(0)
     todo = [r for r in rows if r["event_id"] not in done]
     st = {"đã có từ trước": len(rows) - len(todo), "mới": 0, "lỗi parse": 0, "lỗi gọi mô hình": 0}
-    with open(a.out, "a", encoding="utf8") as f, ui.progress() as pg:
-        task = pg.add_task(name, total=len(todo))
-        for r in todo:
-            sid = r["event_id"]
+    def one(r):  # chạy trong luồng phụ: chỉ gọi mô hình, không ghi file
+        if a.fake:
+            return {k: rnd.choice(q["codes"]) for k, q in qs}, False, ""
+        return ask(model, [clip_path(r, a.clips)], segment_context(r), qs)
+
+    # vLLM tự gom các request đồng thời thành batch; số request cùng lúc đặt ở models.<tên>.concurrency
+    workers = 1 if a.fake else model["concurrency"]
+    with open(a.out, "a", encoding="utf8") as f, ui.progress() as pg, ThreadPoolExecutor(workers) as ex:
+        task = pg.add_task(f"{name} ×{workers}", total=len(todo))
+        futs = {ex.submit(one, r): r["event_id"] for r in todo}
+        for fut in as_completed(futs):
+            sid = futs[fut]
             pg.advance(task)
-            if a.fake:
-                ans, err, why = {k: rnd.choice(q["codes"]) for k, q in qs}, False, ""
-            else:
-                try:
-                    ans, err, why = ask(model, [clip_path(r, a.clips)], segment_context(r), qs)
-                except Exception as e:  # lỗi một mẫu không làm dừng cả lượt chạy
-                    st["lỗi gọi mô hình"] += 1
-                    pg.console.print(f"[red]lỗi[/] {sid}: {e}")
-                    continue
+            try:
+                ans, err, why = fut.result()
+            except Exception as e:  # lỗi một mẫu không làm dừng cả lượt chạy
+                st["lỗi gọi mô hình"] += 1
+                pg.console.print(f"[red]lỗi[/] {sid}: {e}")
+                continue
             f.write(json.dumps({"sample_id": sid, "annotator": name, "answers": ans,
                                 "parse_error": err, "reasoning": why}, ensure_ascii=False) + "\n")
             f.flush()

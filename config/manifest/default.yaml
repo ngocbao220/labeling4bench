@@ -1,3 +1,4 @@
 # Cửa sổ clip quanh mỗi sự kiện (build_manifest.build). Dùng bởi build_manifest.py và collect.py.
 pre: 12.0       # giây ngữ cảnh trước sự kiện
 post: 3.0       # giây giữ lại sau sự kiện
+workers: 8      # số tiến trình ffmpeg cắt clip cùng lúc

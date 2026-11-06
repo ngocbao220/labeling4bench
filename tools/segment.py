@@ -10,7 +10,7 @@ Chạy:
 
 Các mô hình load theo config/models (Hydra; khoá vad, diarization, asr), ghi đè bằng vd. models=local. Phần nặng chỉ import khi cần.
 """
-import argparse, json, os, re, sys
+import argparse, functools, json, os, re, sys, threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BC_WORDS = {"ừ", "ừm", "ờ", "à", "ạ", "dạ", "vâng", "ừ ừ", "dạ vâng", "đúng", "đúng rồi", "ok", "ừ đúng", "thế à", "vậy à", "à ra thế", "hả", "ồ"}
@@ -20,20 +20,47 @@ OPEN_END = {"mà", "thì", "là", "và", "nhưng", "với", "của", "cho", "đ�
 
 # ---------------- mô hình ----------------
 
+# Mỗi mô hình chỉ load một lần cho cả lượt chạy (collect.py gọi transcribe cho từng file).
+@functools.lru_cache(maxsize=None)
+def _vad_model(onnx):
+    from silero_vad import load_silero_vad
+    return load_silero_vad(onnx=onnx)
+
+
+@functools.lru_cache(maxsize=None)
+def _diar_model(path, device):
+    from nemo.collections.asr.models import SortformerEncLabelModel
+    m = SortformerEncLabelModel.restore_from(path, map_location=device)
+    m.eval()
+    return m
+
+
+# Chạy nhiều luồng (collect.py): VAD và diarization dùng chung một mô hình nên có khoá
+# (diarization chiếm GPU, chạy lần lượt); ASR chạy CPU nên mỗi luồng một recognizer, chạy song song.
+_VAD_LOCK, _DIAR_LOCK, _LOCAL = threading.Lock(), threading.Lock(), threading.local()
+
+
+def _asr(cfg_json):
+    if getattr(_LOCAL, "asr_key", None) != cfg_json:
+        _LOCAL.asr, _LOCAL.asr_key = ASR(json.loads(cfg_json)), cfg_json
+    return _LOCAL.asr
+
+
 def vad(wav, cfg):
-    from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
-    m = load_silero_vad(onnx=cfg.get("onnx", False))
-    ts = get_speech_timestamps(read_audio(wav, sampling_rate=16000), m, sampling_rate=16000,
-                               min_silence_duration_ms=cfg.get("min_silence_ms", 100), return_seconds=True)
+    from silero_vad import read_audio, get_speech_timestamps
+    x = read_audio(wav, sampling_rate=16000)
+    with _VAD_LOCK:
+        m = _vad_model(cfg.get("onnx", False))
+        ts = get_speech_timestamps(x, m, sampling_rate=16000,
+                                   min_silence_duration_ms=cfg.get("min_silence_ms", 100), return_seconds=True)
     return [(t["start"], t["end"]) for t in ts]
 
 
 def diarize(wav, cfg):
     """[(start, end, 'SPEAKER_xx')]. Dùng NeMo (Sortformer). shortcut: API diarize() theo NeMo 2.x, đổi tại đây nếu checkpoint khác."""
-    from nemo.collections.asr.models import SortformerEncLabelModel
-    m = SortformerEncLabelModel.restore_from(cfg["path"], map_location=cfg.get("device", "cuda"))
-    m.eval()
-    out = m.diarize(audio=[wav], batch_size=1)[0]
+    with _DIAR_LOCK:
+        m = _diar_model(cfg["path"], cfg.get("device", "cuda"))
+        out = m.diarize(audio=[wav], batch_size=1)[0]
     segs = []
     for x in out:  # mỗi phần tử: "start end speaker_N"
         s, e, spk = (x.split() if isinstance(x, str) else x)[:3]
@@ -78,7 +105,7 @@ def clip_to_speech(segs, speech, min_dur=0.2):
 def transcribe(wav, models):
     speech = vad(wav, models.get("vad", {}))
     segs = clip_to_speech(diarize(wav, models["diarization"]), speech)
-    asr, x = ASR(models["asr"]), load_wav(wav)
+    asr, x = _asr(json.dumps(models["asr"], sort_keys=True)), load_wav(wav)
     tr = []
     for s, e, spk in segs:
         txt = asr(x[int(s * 16000):int(e * 16000)])

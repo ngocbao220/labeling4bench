@@ -9,6 +9,7 @@ Chạy:
   python3 tools/augment.py --manifest ... --op reverb --rir-dir /data/rirs   |   --op quiet --gain-db -20
 """
 import argparse, glob, json, os, random, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -68,6 +69,7 @@ def main():
     ap.add_argument("--snr", type=float, help="dB; bỏ trống = ngẫu nhiên 0–20")
     ap.add_argument("--gain-db", type=float, default=-20)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--workers", type=int, default=os.cpu_count(), help="số segment xử lý cùng lúc")
     import conf
     argv, overrides = conf.split_argv()
     a = ap.parse_args(argv)
@@ -77,22 +79,27 @@ def main():
         a._noises = wavs(a.noise_dir or ap.error("--op noise cần --noise-dir"))
     if a.op == "reverb":
         a._rirs = wavs(a.rir_dir or ap.error("--op reverb cần --rir-dir"))
-    rnd = random.Random(a.seed)
     os.makedirs(a.clips, exist_ok=True)
-    out = []
     rows = [r for r in load_jsonl(a.manifest) if not r.get("synthetic") and r.get("audio")]
-    pg = ui.progress()
-    pg.start()
-    task = pg.add_task(f"augment {a.op}", total=len(rows))
-    for r in rows:
-        pg.advance(task)
-        src = os.path.join(ROOT, r["audio"])
+
+    def one(r):
+        # seed riêng theo segment: kết quả như nhau dù chạy bao nhiêu luồng, theo thứ tự nào
+        rnd = random.Random(f"{a.seed}-{r['event_id']}")
         eid = f"{r['event_id']}_{a.op}"
         dst = os.path.join(a.clips, eid + ".wav")
-        info = apply(a.op, src, dst, a, rnd)
-        out.append(dict(r, event_id=eid, audio=os.path.relpath(dst, ROOT), synthetic=True,
-                        augment={"op": a.op, "from": r["event_id"], **info},
-                        file_labels={**(r.get("file_labels") or {}), **LABELS[a.op]}))
+        info = apply(a.op, os.path.join(ROOT, r["audio"]), dst, a, rnd)
+        return dict(r, event_id=eid, audio=os.path.relpath(dst, ROOT), synthetic=True,
+                    augment={"op": a.op, "from": r["event_id"], **info},
+                    file_labels={**(r.get("file_labels") or {}), **LABELS[a.op]})
+
+    pg = ui.progress()
+    pg.start()
+    task = pg.add_task(f"augment {a.op} ×{a.workers}", total=len(rows))
+    out = []
+    with ThreadPoolExecutor(a.workers) as ex:
+        for r in ex.map(one, rows):  # giữ thứ tự của manifest
+            out.append(r)
+            pg.advance(task)
     with open(a.out, "w", encoding="utf8") as f:
         f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in out)
     pg.stop()

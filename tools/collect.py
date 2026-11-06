@@ -11,7 +11,8 @@ Chạy (Hydra, config ở config/):
   python3 tools/collect.py collect.buckets.0.target_minutes=60
 Chạy lại tiếp tục từ chỗ dừng (đọc raw_index.jsonl, classified.jsonl). Tăng target_minutes để lấy thêm.
 """
-import hashlib, json, os, random, subprocess, sys
+import glob, hashlib, json, os, random, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import hydra
 from omegaconf import OmegaConf
@@ -59,13 +60,14 @@ def normalize(src, dst, max_min):
 
 
 def excerpts(wav, work, tr, n, dur):
+    stem = os.path.splitext(os.path.basename(wav))[0]  # tên riêng theo file để các luồng không ghi đè nhau
     """n đoạn ~dur giây rải đều trong file, bắt đầu tại đầu một lượt nói."""
     if not tr:
         return []
     picks = [tr[int(i * len(tr) / n)]["s"] for i in range(n)]
     out = []
     for i, s in enumerate(picks):
-        p = os.path.join(work, f"_ex{i}.wav")
+        p = os.path.join(work, f"{stem}_ex{i}.wav")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(s), "-t", str(dur), "-i", wav, p], check=True)
         out.append(p)
     return out
@@ -127,39 +129,73 @@ def main(C):
     bucket_table("Quota trước khi chạy")
     if C["dry_run"]:
         return
+    m = models[cfg["classifier"]]
+    try:  # vLLM chưa chạy thì dừng ngay, khỏi chạy ASR cho từng file rồi mới lỗi
+        import urllib.request
+        urllib.request.urlopen(m["base_url"].rstrip("/") + "/models", timeout=10).read()
+    except Exception as e:
+        ui.console.print(f"[red]Không gọi được {cfg['classifier']} ở {m['base_url']}: {e}[/]\n"
+                         f"Kiểm tra vllm serve đã chạy và base_url trong config models đúng host:cổng.")
+        sys.exit(1)
     max_min = cfg["max_minutes_per_file"]
     total_need = sum(need().values())
     st = {"lấy": 0, "bỏ (không bucket cần)": 0, "bỏ qua (đã xử lý)": 0, "lỗi": 0, "segment": 0}
 
-    with ui.progress() as pg:
+    def process(src, i, c):
+        """Chạy trong luồng phụ: chuẩn hoá, VAD + diarization + ASR, phân loại (nếu chưa có). Không đụng trạng thái chung."""
+        wav = os.path.join(fdir, i + ".wav")
+        if not os.path.exists(wav):
+            normalize(src, wav, max_min)
+        tr, speech = segment.run(wav, fdir, models, **C["segment"])
+        speech_min = sum(e - s for s, e in speech) / 60
+        if c is None:
+            labels, err = classify(m, wav, work, tr, cfg["classify"]) if tr else ({}, True)
+            labels["speakers"] = n_speakers(tr)
+            c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
+        for f in glob.glob(os.path.join(work, i + "_ex*.wav")):
+            os.remove(f)
+        return wav, speech_min, c
+
+    def wanted(c):
+        """Luồng chính: file này còn cần xử lý không (theo cache phân loại và quota hiện tại)."""
+        if c and c.get("used"):
+            return False
+        return not c or any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need())
+
+    workers = cfg["workers"]
+    with ui.progress() as pg, ThreadPoolExecutor(workers) as ex:
         t_files = pg.add_task("file nguồn", total=len(srcs))
         t_min = pg.add_task("phút còn thiếu", total=round(total_need, 1))
-        for src in srcs:
-            if not need():
-                break
-            pg.update(t_files, advance=1, description=f"file nguồn [dim]{os.path.basename(src)[:30]}[/]")
-            i = fid(src)
-            c = cls.get(i)
-            if c and c.get("used"):
-                st["bỏ qua (đã xử lý)"] += 1
-                continue
-            if c and not any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need()):
-                st["bỏ qua (đã xử lý)"] += 1
-                continue                       # đã phân loại, không bucket nào đang cần
-            wav = os.path.join(fdir, i + ".wav")
+        it, running, seen = iter(srcs), {}, set()
+
+        def submit():
+            # giữ tối đa `workers` file đang chạy; hết quota thì không nạp thêm
+            while len(running) < workers and need():
+                src = next(it, None)
+                if src is None:
+                    return
+                i = fid(src)
+                if i in seen or not wanted(cls.get(i)):
+                    seen.add(i)
+                    st["bỏ qua (đã xử lý)"] += 1
+                    pg.advance(t_files)
+                    continue
+                seen.add(i)
+                running[ex.submit(process, src, i, cls.get(i))] = src
+
+        submit()
+        while running:
+            fut = next(as_completed(running))
+            src = running.pop(fut)
+            pg.advance(t_files)
             try:
-                if not os.path.exists(wav):
-                    normalize(src, wav, max_min)
-                tr, speech = segment.run(wav, fdir, models, **C["segment"])
-                speech_min = sum(e - s for s, e in speech) / 60
-                if c is None:
-                    labels, err = classify(models[cfg["classifier"]], wav, work, tr, cfg["classify"]) if tr else ({}, True)
-                    labels["speakers"] = n_speakers(tr)
-                    c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
+                wav, speech_min, c = fut.result()
             except Exception as e:  # file hỏng không làm dừng cả lượt
                 st["lỗi"] += 1
                 pg.console.print(f"[red]lỗi[/] {src}: {e}")
+                submit()
                 continue
+            i = c["id"]
             bs = [b["name"] for b in cfg["buckets"] if b["name"] in need() and matches(b["match"], c["labels"])]
             c["used"] = bool(bs and speech_min >= cfg["min_speech_minutes"])
             append(cls_p, c)
@@ -167,6 +203,7 @@ def main(C):
             if not c["used"]:
                 st["bỏ (không bucket cần)"] += 1
                 os.remove(wav)
+                submit()
                 continue
             rows = build_manifest.build(i, fdir, clips=clips, **C["manifest"],
                                         extra={"bucket": bs, "source_path": src, "file_labels": c["labels"]})
@@ -181,6 +218,7 @@ def main(C):
             st["lấy"] += 1
             st["segment"] += len(rows)
             pg.console.print(f"[green]+[/] {os.path.basename(src)} → {', '.join(bs)} ({speech_min:.1f} phút, {len(rows)} segment)")
+            submit()
 
     ui.table("Kết quả lượt chạy", ["", ">số"], list(st.items()))
     bucket_table("Quota sau khi chạy")

@@ -10,7 +10,7 @@ asr:                      # zipformer qua sherpa-onnx
   decoder: /models/zipformer-vi/decoder.onnx
   joiner: /models/zipformer-vi/joiner.onnx
   tokens: /models/zipformer-vi/tokens.txt
-  provider: cuda
+  provider: cpu           # bản sherpa-onnx từ pip chỉ có CPU; đổi cuda nếu cài bản build GPU
   threads: 4
 qwen_instruct:            # chạy bằng: vllm serve <path> --served-model-name <served_name> --port 8001
   path: /models/Qwen3-Omni-30B-A3B-Instruct
@@ -19,12 +19,14 @@ qwen_instruct:            # chạy bằng: vllm serve <path> --served-model-name
   temperature: 0
   max_tokens: 1024
   json_schema: true
+  concurrency: 16        # số request gửi cùng lúc (ask_models.py); vLLM tự gom batch
 qwen_thinking:
   path: /models/Qwen3-Omni-30B-A3B-Thinking
   base_url: http://127.0.0.1:8002/v1
   served_name: qwen3-omni-thinking
   temperature: 0
   max_tokens: 8192
+  concurrency: 8
   json_schema: false      # ép schema có thể cắt phần suy nghĩ; parse JSON cuối thay vào đó
 nemotron_transcribe:      # ASR đối chiếu: chưa có code nào gọi, chỉ in được lệnh serve
   path: /models/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B

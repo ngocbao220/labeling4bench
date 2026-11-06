@@ -55,12 +55,12 @@ def owner(ev, tr):
     return prev[-1] if prev else None
 
 
-def build(name, d, pre, post, clips=None, extra=None, progress=False):
+def build(name, d, pre, post, clips=None, extra=None, progress=False, workers=1):
     """Trả về danh sách mẫu (dict) cho một file. extra: các trường ghi thêm vào mọi mẫu (bucket, file_labels...)."""
     tr = load_tr(os.path.join(d, name + "_transcript.txt"))
     evs = load_ev(os.path.join(d, name + "_turnevent.txt"))
     dur = max(t["e"] for t in tr)
-    rows = []
+    rows, jobs = [], []
     pg = None
     if progress:
         import ui
@@ -111,12 +111,16 @@ def build(name, d, pre, post, clips=None, extra=None, progress=False):
         }
         row.update(extra or {})
         if clips:
-            os.makedirs(clips, exist_ok=True)
             out = os.path.join(clips, row["event_id"] + ".wav")
-            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t0), "-to", str(t1),
-                            "-i", os.path.join(d, name + ".wav"), "-ac", "1", "-ar", "16000", out], check=True)
+            jobs.append(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t0), "-to", str(t1),
+                         "-i", os.path.join(d, name + ".wav"), "-ac", "1", "-ar", "16000", out])
             row["audio"] = os.path.relpath(out, ROOT)
         rows.append(row)
+    if jobs:  # cắt clip song song, mỗi clip một tiến trình ffmpeg
+        from concurrent.futures import ThreadPoolExecutor
+        os.makedirs(clips, exist_ok=True)
+        with ThreadPoolExecutor(workers) as ex:
+            list(ex.map(lambda cmd: subprocess.run(cmd, check=True), jobs))
     if pg:
         pg.stop()
         import collections, ui

@@ -48,6 +48,17 @@ python3 tools/collect.py models=local collect=local collect.buckets.0.target_min
 
 Giá trị ghi đè trên dòng lệnh phải viết không dấu (Hydra không nhận ký tự tiếng Việt trong override). Mô tả có dấu thì sửa trong file yaml.
 
+**Chạy song song**, mỗi chỗ chỉnh ở đúng một khoá:
+
+| Khoá | Ý nghĩa |
+|---|---|
+| `collect.workers` | số file nguồn xử lý cùng lúc trong `collect.py`: ffmpeg, ASR và gọi Qwen chạy song song; Nemotron-Diarization dùng chung GPU nên vẫn lần lượt |
+| `models.<tên>.concurrency` | số request gửi cùng lúc đến vLLM trong `ask_models.py` (vLLM tự gom batch) |
+| `manifest.workers` | số tiến trình ffmpeg cắt clip cùng lúc |
+| `--workers` của `augment.py` | số segment biến đổi cùng lúc (mặc định bằng số nhân CPU) |
+
+Tăng `concurrency` cho đến khi vLLM báo hết KV cache hoặc độ trễ tăng vọt. Tăng `collect.workers` cho đến khi CPU hoặc GPU đầy.
+
 **Bucket** được xếp theo nhãn mà mô hình đoán, không theo thư mục nguồn. Ví dụ:
 
 ```yaml
