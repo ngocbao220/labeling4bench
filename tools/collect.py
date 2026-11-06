@@ -78,8 +78,8 @@ def classify(model, wav, work, tr, k):
     text = " / ".join(f"{t['spk']}: {t['text']}" for t in tr)[:k["transcript_chars"]]
     ctx = ("Bạn nghe vài đoạn trích từ cùng một file audio. Trả lời các câu hỏi cho cả file (không phải một lượt nói). "
            "Câu về giọng hoặc tuổi thì xét người nói chính.\nTranscript rút gọn (máy chép, có thể sai): " + text)
-    ans, err, _ = ask_models.ask(model, excerpts(wav, work, tr, k["n_excerpts"], k["excerpt_sec"]), ctx, qs)
-    return {k.split(".", 1)[1]: v for k, v in ans.items()}, err
+    ans, err, _, raw = ask_models.ask(model, excerpts(wav, work, tr, k["n_excerpts"], k["excerpt_sec"]), ctx, qs)
+    return {k.split(".", 1)[1]: v for k, v in ans.items()}, err, raw
 
 
 def n_speakers(tr, min_share=0.1):
@@ -143,8 +143,8 @@ def main(C):
 
     def decide(c, speech_min):
         """Luồng chính: LẤY hay BỎ file, kèm lý do đọc được. Trả (quyết định, lý do, bucket)."""
-        if c.get("parse_error") and not c["labels"].get("genre"):
-            return "BỎ", "mô hình không trả lời được (lỗi parse)", []
+        if failed(c):
+            return "BỎ", "mô hình không trả lời được (lỗi parse; xem: decisions.py --raw)", []
         if speech_min < cfg["min_speech_minutes"]:
             return "BỎ", f"ít tiếng nói ({speech_min:.1f} < {cfg['min_speech_minutes']} phút)", []
         fit = [b["name"] for b in cfg["buckets"] if matches(b["match"], c["labels"])]
@@ -163,12 +163,17 @@ def main(C):
         tr, speech = segment.run(wav, fdir, models, **C["segment"])
         speech_min = sum(e - s for s, e in speech) / 60
         if c is None:
-            labels, err = classify(m, wav, work, tr, cfg["classify"]) if tr else ({}, True)
+            labels, err, raw = classify(m, wav, work, tr, cfg["classify"]) if tr else ({}, True, "(không có transcript)")
             labels["speakers"] = n_speakers(tr)
             c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
+            if raw:
+                c["raw"] = raw  # câu trả lời thô của mô hình khi lỗi parse
         for f in glob.glob(os.path.join(work, i + "_ex*.wav")):
             os.remove(f)
         return wav, speech_min, c
+
+    def failed(c):
+        return c.get("parse_error") and not c["labels"].get("genre")
 
     def wanted(c):
         """Luồng chính: file này còn cần xử lý không (theo cache phân loại và quota hiện tại)."""
@@ -189,6 +194,8 @@ def main(C):
                 if src is None:
                     return
                 i = fid(src)
+                if cls.get(i) and failed(cls[i]):
+                    cls.pop(i)  # lượt trước mô hình không trả lời được: phân loại lại
                 if i in seen or not wanted(cls.get(i)):
                     seen.add(i)
                     st["bỏ qua (đã quyết định ở lượt trước)"] += 1

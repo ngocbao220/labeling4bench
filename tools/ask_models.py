@@ -98,7 +98,14 @@ def parse(text, qs):
         raw = json.loads(objs[-1]) if objs else {}
     except ValueError:
         raw = {}
-    ans = {k: raw[k] for k, q in qs if raw.get(k) in q["codes"]}
+    ans = {}
+    if isinstance(raw, dict):
+        for k, q in qs:
+            # chấp nhận cả khoá không có tên tab ("genre") và mã viết thường ("chat")
+            v = raw.get(k, raw.get(k.split(".", 1)[1]))
+            v = {c.upper(): c for c in q["codes"]}.get(str(v).strip().upper()) if v is not None else None
+            if v:
+                ans[k] = v
     return ans, len(ans) < len(qs), reasoning
 
 
@@ -115,8 +122,10 @@ def ask(model, audios, context, qs, timeout=600):
                                  data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         msg = json.load(r)["choices"][0]["message"]
-    ans, err, reasoning = parse(msg.get("content") or "", qs)
-    return ans, err, msg.get("reasoning_content") or reasoning
+    content = msg.get("content") or ""
+    ans, err, reasoning = parse(content, qs)
+    # khi lỗi parse, trả kèm câu trả lời thô (cắt ngắn) để biết mô hình đã nói gì
+    return ans, err, msg.get("reasoning_content") or reasoning, (content[:2000] if err else "")
 
 
 def clip_path(row, clips):
@@ -160,7 +169,7 @@ def main():
     st = {"đã có từ trước": len(rows) - len(todo), "mới": 0, "lỗi parse": 0, "lỗi gọi mô hình": 0}
     def one(r):  # chạy trong luồng phụ: chỉ gọi mô hình, không ghi file
         if a.fake:
-            return {k: rnd.choice(q["codes"]) for k, q in qs}, False, ""
+            return {k: rnd.choice(q["codes"]) for k, q in qs}, False, "", ""
         return ask(model, [clip_path(r, a.clips)], segment_context(r), qs)
 
     # vLLM tự gom các request đồng thời thành batch; số request cùng lúc đặt ở models.<tên>.concurrency
@@ -172,13 +181,13 @@ def main():
             sid = futs[fut]
             pg.advance(task)
             try:
-                ans, err, why = fut.result()
+                ans, err, why, raw = fut.result()
             except Exception as e:  # lỗi một mẫu không làm dừng cả lượt chạy
                 st["lỗi gọi mô hình"] += 1
                 pg.console.print(f"[red]lỗi[/] {sid}: {e}")
                 continue
             f.write(json.dumps({"sample_id": sid, "annotator": name, "answers": ans,
-                                "parse_error": err, "reasoning": why}, ensure_ascii=False) + "\n")
+                                "parse_error": err, "reasoning": why, **({"raw": raw} if raw else {})}, ensure_ascii=False) + "\n")
             f.flush()
             st["mới"] += 1
             st["lỗi parse"] += err

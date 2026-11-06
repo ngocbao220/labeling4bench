@@ -23,6 +23,7 @@ def main():
     ap.add_argument("--grep")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--csv")
+    ap.add_argument("--raw", action="store_true", help="in câu trả lời thô của mô hình cho các file lỗi parse")
     argv, overrides = conf.split_argv()
     a = ap.parse_args(argv)
     p = os.path.join(conf.path(conf.load(overrides), "raw"), "classified.jsonl")
@@ -48,6 +49,13 @@ def main():
              ["file", "quyết định", "lý do", "nhãn mô hình"],
              [(os.path.basename(r["src"]), "[green]LẤY[/]" if r["decision"] == "LẤY" else "[yellow]BỎ[/]", r["reason"],
                " ".join(f"{k}={r['labels'][k]}" for k in COLS if r["labels"].get(k) is not None)) for r in shown])
+    if a.raw:
+        for r in shown:
+            if r.get("raw"):
+                ui.console.rule(os.path.basename(r["src"]))
+                ui.console.print(r["raw"], markup=False, highlight=False)
+        if not any(r.get("raw") for r in shown):
+            ui.console.print("Không có file nào lưu câu trả lời thô (chỉ lưu khi lỗi parse, từ bản này trở đi).")
     if a.csv:
         os.makedirs(os.path.dirname(os.path.abspath(a.csv)), exist_ok=True)
         with open(a.csv, "w", newline="", encoding="utf8") as f:
