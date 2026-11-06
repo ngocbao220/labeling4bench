@@ -106,6 +106,15 @@ python3 tools/decisions.py --csv out/decisions.csv          # xuất ra Excel
 
 Có 5 lý do: vào bucket nào, không khớp bucket nào, khớp nhưng bucket đã đủ quota, ít tiếng nói (dưới `collect.min_speech_minutes`), mô hình không trả lời được. Mọi quyết định lưu ở `data/raw/classified.jsonl` (các trường `decision`, `reason`, `labels`, `decided_at`).
 
+**Phân bố của nguồn, không tính quota:**
+
+```bash
+python3 tools/collect.py models=local collect=local collect.survey=true   # phân loại MỌI file nguồn, không lấy file nào
+python3 tools/decisions.py --dist collect=local                           # % số phút theo nguồn, genre, channel, noise, accent... + bảng chéo
+```
+
+Bình thường `collect.py` dừng khi đủ quota, nên chỉ một phần nguồn được phân loại. Chế độ `survey` chạy qua hết nguồn để biết nguồn thật sự chứa gì, rồi dựa vào đó đặt bucket và quota cho hợp lý. Lượt chạy thường sau đó dùng lại nhãn đã có, không gọi lại mô hình. Lượt khảo sát vẫn chạy ASR trên mọi file nên tốn thời gian.
+
 **Xem kết quả thu data:** mở `notebooks/collect_results.ipynb`. Notebook hiện quota theo bucket, thống kê quyết định LẤY/BỎ, phân bố nhãn LLM gán, bảng segment `bucket × event`, và từng file với dòng thời gian người nói, các sự kiện, transcript và clip để nghe. Chạy lại lúc nào cũng được, kể cả khi `collect.py` đang chạy.
 
 **Bước 3: hỏi mô hình bộ câu hỏi trên từng segment.**

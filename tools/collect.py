@@ -146,6 +146,8 @@ def main(C):
         sys.exit(1)
     max_min = cfg["max_minutes_per_file"]
     total_need = sum(need().values())
+    survey = cfg["survey"]
+    active = (lambda: True) if survey else (lambda: bool(need()))
     st = {"lấy": 0, "bỏ": 0, "bỏ qua (đã quyết định ở lượt trước)": 0, "lỗi": 0, "segment": 0}
 
     def decide(c, speech_min):
@@ -155,6 +157,8 @@ def main(C):
         if speech_min < cfg["min_speech_minutes"]:
             return "BỎ", f"ít tiếng nói ({speech_min:.1f} < {cfg['min_speech_minutes']} phút)", []
         fit = [b["name"] for b in cfg["buckets"] if matches(b["match"], c["labels"])]
+        if survey:  # chỉ phân loại để thống kê nguồn, không lấy file nào
+            return "KHẢO SÁT", (f"khớp {', '.join(fit)}" if fit else "không khớp bucket nào"), []
         if not fit:
             return "BỎ", "không khớp bucket nào", []
         bs = [b for b in fit if b in need()]
@@ -186,6 +190,8 @@ def main(C):
         """Luồng chính: file này còn cần xử lý không (theo cache phân loại và quota hiện tại)."""
         if c and c.get("used"):
             return False
+        if survey:
+            return not c  # khảo sát: chỉ cần phân loại file chưa có nhãn
         return not c or any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need())
 
     peak = [0]
@@ -211,7 +217,7 @@ def main(C):
             load = max(cpu / 100 * cores, len(running) * per_file)
             room = int((cpu_max / 100 * cores - load) / per_file)
             n = max(room, 0 if running else 1)
-            while n > 0 and len(running) < workers and need():
+            while n > 0 and len(running) < workers and active():
                 src = next(it, None)
                 if src is None:
                     exhausted[0] = True
@@ -240,6 +246,13 @@ def main(C):
             i = c["id"]
             c["decision"], c["reason"], bs = decide(c, speech_min)
             c["used"] = c["decision"] == "LẤY"
+            if c["decision"] == "KHẢO SÁT":
+                st["khảo sát"] = st.get("khảo sát", 0) + 1
+                pg.console.print(f"[cyan]· KHẢO SÁT[/] {os.path.basename(src)}: {c['reason']} [dim]({' '.join(f'{k}={v}' for k, v in c['labels'].items())})[/]")
+                append(cls_p, dict(c, decided_at=time.strftime("%Y-%m-%d %H:%M:%S")))
+                cls[i] = c
+                os.remove(wav)
+                return
             c["decided_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             append(cls_p, c)
             cls[i] = c
@@ -271,13 +284,16 @@ def main(C):
             peak[0] = max(peak[0], len(running))
             submit(cpu)
             pg.update(t_files, description=f"file nguồn [dim]{len(running)}/{workers} luồng · CPU {cpu:.0f}%[/]")
-            if not running and (exhausted[0] or not need()):
+            if not running and (exhausted[0] or not active()):
                 break
 
     st["số file chạy cùng lúc tối đa"] = peak[0]
     ui.table("Kết quả lượt chạy", ["", ">số"], list(st.items()))
     bucket_table("Quota sau khi chạy")
-    ui.console.print("[green]Đủ quota mọi bucket.[/]" if not need() else "[yellow]Hết nguồn, còn bucket chưa đủ quota.[/]")
+    if survey:
+        ui.console.print("[green]Khảo sát xong.[/] Xem phân bố: python3 tools/decisions.py --dist, hoặc notebooks/collect_results.ipynb")
+    else:
+        ui.console.print("[green]Đủ quota mọi bucket.[/]" if not need() else "[yellow]Hết nguồn, còn bucket chưa đủ quota.[/]")
 
 if __name__ == "__main__":
     main()
