@@ -12,7 +12,9 @@ Chạy (Hydra, config ở config/):
 Chạy lại tiếp tục từ chỗ dừng (đọc raw_index.jsonl, classified.jsonl). Tăng target_minutes để lấy thêm.
 """
 import glob, hashlib, json, os, random, subprocess, sys, time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+
+import psutil
 
 import hydra
 from omegaconf import OmegaConf
@@ -181,17 +183,33 @@ def main(C):
             return False
         return not c or any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need())
 
-    workers = cfg["workers"]
+    peak = [0]
+    workers, cpu_max, cores = cfg["workers"], cfg["max_cpu_percent"], psutil.cpu_count() or 1
+    # mỗi worker chạy zipformer với asr.threads luồng: tổng vượt số nhân thì CPU quá tải ngay từ đầu
+    thr = models["asr"].get("threads", 1)
+    if models["asr"].get("provider") == "cpu" and workers * thr > cores:
+        models["asr"]["threads"] = max(1, cores // workers)
+        ui.console.print(f"[yellow]{workers} worker × {thr} luồng ASR > {cores} nhân CPU: giảm asr.threads xuống {models['asr']['threads']}[/]")
+    psutil.cpu_percent(None)  # mốc đầu cho lần đo sau
     with ui.progress() as pg, ThreadPoolExecutor(workers) as ex:
         t_files = pg.add_task("file nguồn", total=len(srcs))
         t_min = pg.add_task("phút còn thiếu", total=round(total_need, 1))
-        it, running, seen = iter(srcs), {}, set()
+        it, running, seen, exhausted = iter(srcs), {}, set(), [False]
 
-        def submit():
-            # giữ tối đa `workers` file đang chạy; hết quota thì không nạp thêm
-            while len(running) < workers and need():
+        per_file = max(1, models["asr"].get("threads", 1)) if models["asr"].get("provider") == "cpu" else 1
+
+        def submit(cpu):
+            """Nạp thêm file theo phần CPU còn trống: mỗi file ước tính chiếm `per_file` nhân (asr.threads khi ASR chạy CPU).
+            Không vượt `workers`, dừng khi đủ quota; luôn giữ ít nhất 1 file chạy."""
+            # tải ước tính (số nhân): lấy số lớn hơn giữa CPU đo được và phần các file đang chạy sẽ dùng,
+            # vì file vừa nạp chưa kịp đẩy CPU lên
+            load = max(cpu / 100 * cores, len(running) * per_file)
+            room = int((cpu_max / 100 * cores - load) / per_file)
+            n = max(room, 0 if running else 1)
+            while n > 0 and len(running) < workers and need():
                 src = next(it, None)
                 if src is None:
+                    exhausted[0] = True
                     return
                 i = fid(src)
                 if cls.get(i) and failed(cls[i]):
@@ -203,10 +221,9 @@ def main(C):
                     continue
                 seen.add(i)
                 running[ex.submit(process, src, i, cls.get(i))] = src
+                n -= 1
 
-        submit()
-        while running:
-            fut = next(as_completed(running))
+        def handle(fut):
             src = running.pop(fut)
             pg.advance(t_files)
             try:
@@ -214,8 +231,7 @@ def main(C):
             except Exception as e:  # file hỏng không làm dừng cả lượt
                 st["lỗi"] += 1
                 pg.console.print(f"[red]lỗi[/] {src}: {e}")
-                submit()
-                continue
+                return
             i = c["id"]
             c["decision"], c["reason"], bs = decide(c, speech_min)
             c["used"] = c["decision"] == "LẤY"
@@ -227,8 +243,7 @@ def main(C):
                 st["bỏ"] += 1
                 pg.console.print(f"[yellow]- BỎ[/] {os.path.basename(src)}: {c['reason']} [dim]({lab})[/]")
                 os.remove(wav)
-                submit()
-                continue
+                return
             rows = build_manifest.build(i, fdir, clips=clips, **C["manifest"],
                                         extra={"bucket": bs, "source_path": src, "file_labels": c["labels"]})
             with open(os.path.join(mdir, i + ".jsonl"), "w", encoding="utf8") as f:
@@ -242,8 +257,19 @@ def main(C):
             st["lấy"] += 1
             st["segment"] += len(rows)
             pg.console.print(f"[green]+ LẤY[/] {os.path.basename(src)}: {c['reason']}, {len(rows)} segment [dim]({lab})[/]")
-            submit()
 
+        while True:
+            done = wait(running, timeout=cfg["cpu_check_sec"], return_when=FIRST_COMPLETED)[0] if running else set()
+            for fut in done:
+                handle(fut)
+            cpu = psutil.cpu_percent(None)
+            peak[0] = max(peak[0], len(running))
+            submit(cpu)
+            pg.update(t_files, description=f"file nguồn [dim]{len(running)}/{workers} luồng · CPU {cpu:.0f}%[/]")
+            if not running and (exhausted[0] or not need()):
+                break
+
+    st["số file chạy cùng lúc tối đa"] = peak[0]
     ui.table("Kết quả lượt chạy", ["", ">số"], list(st.items()))
     bucket_table("Quota sau khi chạy")
     ui.console.print("[green]Đủ quota mọi bucket.[/]" if not need() else "[yellow]Hết nguồn, còn bucket chưa đủ quota.[/]")

@@ -52,12 +52,13 @@ Giá trị ghi đè trên dòng lệnh phải viết không dấu (Hydra không 
 
 | Khoá | Ý nghĩa |
 |---|---|
-| `collect.workers` | số file nguồn xử lý cùng lúc trong `collect.py`: ffmpeg, ASR và gọi Qwen chạy song song; Nemotron-Diarization dùng chung GPU nên vẫn lần lượt |
+| `collect.workers` | số file nguồn xử lý cùng lúc **tối đa** trong `collect.py`: ffmpeg, ASR và gọi Qwen chạy song song; Nemotron-Diarization dùng chung GPU nên vẫn lần lượt |
+| `collect.max_cpu_percent` | trần CPU của cả máy (mặc định 90%). Mỗi nhịp `collect.cpu_check_sec`, `collect.py` đo CPU và chỉ nạp thêm file khi còn chỗ; mỗi file được tính là `asr.threads` nhân. Nếu `workers × asr.threads` lớn hơn số nhân thì `asr.threads` tự giảm |
 | `models.<tên>.concurrency` | số request gửi cùng lúc đến vLLM trong `ask_models.py` (vLLM tự gom batch) |
 | `manifest.workers` | số tiến trình ffmpeg cắt clip cùng lúc |
 | `--workers` của `augment.py` | số segment biến đổi cùng lúc (mặc định bằng số nhân CPU) |
 
-Tăng `concurrency` cho đến khi vLLM báo hết KV cache hoặc độ trễ tăng vọt. Tăng `collect.workers` cho đến khi CPU hoặc GPU đầy.
+Tăng `concurrency` cho đến khi vLLM báo hết KV cache hoặc độ trễ tăng vọt. Với `collect.py`, cứ đặt `workers` cao: số file chạy thật sẽ tự dừng ở mức `max_cpu_percent`. Thanh tiến trình hiện số luồng đang chạy và CPU hiện tại, bảng cuối ghi số file chạy cùng lúc tối đa.
 
 **Bucket** được xếp theo nhãn mà mô hình đoán, không theo thư mục nguồn. Ví dụ:
 

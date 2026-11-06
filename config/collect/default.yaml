@@ -4,7 +4,9 @@ sources: [/data/youtube/, /data/film/, /data/cskh/]
 max_minutes_per_file: 10
 min_speech_minutes: 0.5
 seed: 0
-workers: 4                  # số file xử lý cùng lúc (ffmpeg, ASR, gọi Qwen song song; diarization GPU vẫn lần lượt)
+workers: 4                  # số file xử lý cùng lúc TỐI ĐA (ffmpeg, ASR, gọi Qwen song song; diarization GPU vẫn lần lượt)
+max_cpu_percent: 90         # chỉ nạp thêm file khi CPU cả máy dưới ngưỡng này (%); luôn giữ ít nhất 1 file chạy
+cpu_check_sec: 1.0          # nhịp đo CPU; mỗi nhịp nạp thêm tối đa 1 file
 classifier: qwen_instruct   # khoá trong models
 classify:                   # phân loại mức file
   n_excerpts: 3             # số đoạn trích gửi cho mô hình
