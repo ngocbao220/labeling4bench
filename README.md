@@ -95,6 +95,16 @@ Với mỗi file nguồn, `collect.py` làm lần lượt:
 
 Lệnh dừng khi mọi bucket đủ quota hoặc hết nguồn. Chạy lại thì tiếp tục từ chỗ dừng, và tăng `target_minutes` là lấy thêm.
 
+**Xem quyết định LẤY / BỎ của từng file.** Lúc chạy, mỗi file in một dòng `+ LẤY` hoặc `- BỎ` kèm lý do và nhãn mô hình. Xem lại sau:
+
+```bash
+python3 tools/decisions.py collect=local                    # tổng hợp theo lý do + danh sách từng file
+python3 tools/decisions.py --only BỎ --grep LECTURE         # lọc
+python3 tools/decisions.py --csv out/decisions.csv          # xuất ra Excel
+```
+
+Có 5 lý do: vào bucket nào, không khớp bucket nào, khớp nhưng bucket đã đủ quota, ít tiếng nói (dưới `collect.min_speech_minutes`), mô hình không trả lời được. Mọi quyết định lưu ở `data/raw/classified.jsonl` (các trường `decision`, `reason`, `labels`, `decided_at`).
+
 **Bước 3: hỏi mô hình bộ câu hỏi trên từng segment.**
 
 ```bash

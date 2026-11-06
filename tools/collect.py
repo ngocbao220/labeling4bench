@@ -11,7 +11,7 @@ Chạy (Hydra, config ở config/):
   python3 tools/collect.py collect.buckets.0.target_minutes=60
 Chạy lại tiếp tục từ chỗ dừng (đọc raw_index.jsonl, classified.jsonl). Tăng target_minutes để lấy thêm.
 """
-import glob, hashlib, json, os, random, subprocess, sys
+import glob, hashlib, json, os, random, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import hydra
@@ -139,7 +139,21 @@ def main(C):
         sys.exit(1)
     max_min = cfg["max_minutes_per_file"]
     total_need = sum(need().values())
-    st = {"lấy": 0, "bỏ (không bucket cần)": 0, "bỏ qua (đã xử lý)": 0, "lỗi": 0, "segment": 0}
+    st = {"lấy": 0, "bỏ": 0, "bỏ qua (đã quyết định ở lượt trước)": 0, "lỗi": 0, "segment": 0}
+
+    def decide(c, speech_min):
+        """Luồng chính: LẤY hay BỎ file, kèm lý do đọc được. Trả (quyết định, lý do, bucket)."""
+        if c.get("parse_error") and not c["labels"].get("genre"):
+            return "BỎ", "mô hình không trả lời được (lỗi parse)", []
+        if speech_min < cfg["min_speech_minutes"]:
+            return "BỎ", f"ít tiếng nói ({speech_min:.1f} < {cfg['min_speech_minutes']} phút)", []
+        fit = [b["name"] for b in cfg["buckets"] if matches(b["match"], c["labels"])]
+        if not fit:
+            return "BỎ", "không khớp bucket nào", []
+        bs = [b for b in fit if b in need()]
+        if not bs:
+            return "BỎ", f"khớp {', '.join(fit)} nhưng đã đủ quota", []
+        return "LẤY", f"vào {', '.join(bs)} ({speech_min:.1f} phút)", bs
 
     def process(src, i, c):
         """Chạy trong luồng phụ: chuẩn hoá, VAD + diarization + ASR, phân loại (nếu chưa có). Không đụng trạng thái chung."""
@@ -177,7 +191,7 @@ def main(C):
                 i = fid(src)
                 if i in seen or not wanted(cls.get(i)):
                     seen.add(i)
-                    st["bỏ qua (đã xử lý)"] += 1
+                    st["bỏ qua (đã quyết định ở lượt trước)"] += 1
                     pg.advance(t_files)
                     continue
                 seen.add(i)
@@ -196,12 +210,15 @@ def main(C):
                 submit()
                 continue
             i = c["id"]
-            bs = [b["name"] for b in cfg["buckets"] if b["name"] in need() and matches(b["match"], c["labels"])]
-            c["used"] = bool(bs and speech_min >= cfg["min_speech_minutes"])
+            c["decision"], c["reason"], bs = decide(c, speech_min)
+            c["used"] = c["decision"] == "LẤY"
+            c["decided_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             append(cls_p, c)
             cls[i] = c
+            lab = " ".join(f"{k}={v}" for k, v in c["labels"].items())
             if not c["used"]:
-                st["bỏ (không bucket cần)"] += 1
+                st["bỏ"] += 1
+                pg.console.print(f"[yellow]- BỎ[/] {os.path.basename(src)}: {c['reason']} [dim]({lab})[/]")
                 os.remove(wav)
                 submit()
                 continue
@@ -217,7 +234,7 @@ def main(C):
             pg.update(t_min, advance=round(before - sum(need().values()), 2))
             st["lấy"] += 1
             st["segment"] += len(rows)
-            pg.console.print(f"[green]+[/] {os.path.basename(src)} → {', '.join(bs)} ({speech_min:.1f} phút, {len(rows)} segment)")
+            pg.console.print(f"[green]+ LẤY[/] {os.path.basename(src)}: {c['reason']}, {len(rows)} segment [dim]({lab})[/]")
             submit()
 
     ui.table("Kết quả lượt chạy", ["", ">số"], list(st.items()))
