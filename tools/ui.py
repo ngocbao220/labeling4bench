@@ -18,7 +18,7 @@ def table(title, cols, rows, out=None):
     """cols: tên cột; cột nào bắt đầu bằng '>' thì căn phải (số)."""
     t = Table(title=title, title_justify="left", header_style="bold cyan")
     for c in cols:
-        t.add_column(c.lstrip(">"), justify="right" if c.startswith(">") else "left")
+        t.add_column(c.lstrip(">"), justify="right" if c.startswith(">") else "left", overflow="fold")
     for r in rows:
         t.add_row(*["" if x is None else str(x) for x in r])
     (out or console).print(t)

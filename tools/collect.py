@@ -17,6 +17,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import psutil
 
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import OmegaConf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -57,7 +58,7 @@ def files(sources, seed):
 
 
 def normalize(src, dst, max_min):
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src, "-t", str(max_min * 60),
+    subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", src, "-t", str(max_min * 60),
                     "-vn", "-ac", "1", "-ar", "16000", dst], check=True)
 
 
@@ -70,7 +71,7 @@ def excerpts(wav, work, tr, n, dur):
     out = []
     for i, s in enumerate(picks):
         p = os.path.join(work, f"{stem}_ex{i}.wav")
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(s), "-t", str(dur), "-i", wav, p], check=True)
+        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", str(s), "-t", str(dur), "-i", wav, p], check=True)
         out.append(p)
     return out
 
@@ -128,6 +129,10 @@ def main(C):
                   for b in cfg["buckets"]])
 
     ui.console.print(f"[bold]{len(srcs)}[/] file nguồn trong {len(cfg['sources'])} thư mục")
+    ui.table("Kết quả sẽ ghi vào", ["", "đường dẫn"], [
+        ("quyết định LẤY / BỎ từng file", cls_p), ("file đã lấy (bucket, phút)", idx_p),
+        ("wav, transcript, turnevent", fdir), ("segment (manifest)", mdir), ("clip", clips),
+        ("log + config của lượt này", HydraConfig.get().runtime.output_dir)])
     bucket_table("Quota trước khi chạy")
     if C["dry_run"]:
         return

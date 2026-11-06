@@ -30,9 +30,9 @@ def rd(p):
 def apply(op, src, dst, a, rnd):
     import numpy as np, soundfile as sf
     if op == "phone":  # dải 300–3400 Hz, 8 kHz, nén µ-law, rồi trả về 16 kHz
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", src, "-af", "highpass=f=300,lowpass=f=3400",
+        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", src, "-af", "highpass=f=300,lowpass=f=3400",
                         "-ar", "8000", "-acodec", "pcm_mulaw", "-f", "wav", dst + ".tmp"], check=True)
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", dst + ".tmp", "-ar", "16000", "-acodec", "pcm_s16le", dst], check=True)
+        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", dst + ".tmp", "-ar", "16000", "-acodec", "pcm_s16le", dst], check=True)
         os.remove(dst + ".tmp")
         return {}
     x, sr = rd(src)

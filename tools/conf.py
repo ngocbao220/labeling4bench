@@ -3,6 +3,11 @@ import os
 
 CONF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config")
 
+# ${repo:} trong yaml = thư mục gốc repo, để log Hydra không phụ thuộc thư mục đang đứng khi gõ lệnh
+from omegaconf import OmegaConf as _OC  # noqa: E402
+if not _OC.has_resolver("repo"):
+    _OC.register_new_resolver("repo", lambda: os.path.dirname(CONF_DIR))
+
 
 def path(cfg, key):
     """Đường dẫn trong cfg['paths'] → tuyệt đối (tương đối thì tính từ gốc repo)."""

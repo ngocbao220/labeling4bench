@@ -21,6 +21,6 @@ dry_run: false          # collect.py: chỉ liệt kê file nguồn và quota c�
 
 hydra:
   run:
-    dir: out/hydra/${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${repo:}/out/hydra/${now:%Y-%m-%d_%H-%M-%S}
   job:
     chdir: false
