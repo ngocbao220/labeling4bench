@@ -19,7 +19,7 @@ from omegaconf import OmegaConf
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import ask_models, build_manifest, conf, segment  # noqa: E402
+import ask_models, build_manifest, conf, segment, ui  # noqa: E402
 
 EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".aac", ".mp4", ".mkv", ".webm", ".mov", ".avi"}
 
@@ -116,54 +116,75 @@ def main(C):
     cls = {r["id"]: r for r in jl(cls_p)}
     need = lambda: {b["name"]: b["target_minutes"] - have[b["name"]] for b in cfg["buckets"] if have[b["name"]] < b["target_minutes"]}
     srcs = files(cfg["sources"], cfg["seed"])
-    print(f"{len(srcs)} file nguồn; còn thiếu (phút): {need()}", file=sys.stderr)
+
+    def bucket_table(title):
+        ui.table(title, ["bucket", "mô tả", ">có (phút)", ">mục tiêu", ">còn thiếu", "đạt"],
+                 [(b["name"], b["desc"], f"{have[b['name']]:.1f}", b["target_minutes"],
+                   f"{max(0, b['target_minutes'] - have[b['name']]):.1f}", "✓" if have[b["name"]] >= b["target_minutes"] else "✗")
+                  for b in cfg["buckets"]])
+
+    ui.console.print(f"[bold]{len(srcs)}[/] file nguồn trong {len(cfg['sources'])} thư mục")
+    bucket_table("Quota trước khi chạy")
     if C["dry_run"]:
         return
     max_min = cfg["max_minutes_per_file"]
+    total_need = sum(need().values())
+    st = {"lấy": 0, "bỏ (không bucket cần)": 0, "bỏ qua (đã xử lý)": 0, "lỗi": 0, "segment": 0}
 
-    for src in srcs:
-        if not need():
-            break
-        i = fid(src)
-        c = cls.get(i)
-        if c and c.get("used"):
-            continue                       # đã lấy
-        if c and not any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need()):
-            continue                       # đã phân loại, không bucket nào đang cần
-        wav = os.path.join(fdir, i + ".wav")
-        try:
-            if not os.path.exists(wav):
-                normalize(src, wav, max_min)
-            tr, speech = segment.run(wav, fdir, models, **C["segment"])
-            speech_min = sum(e - s for s, e in speech) / 60
-            if c is None:
-                labels, err = classify(models[cfg["classifier"]], wav, work, tr, cfg["classify"]) if tr else ({}, True)
-                labels["speakers"] = n_speakers(tr)
-                c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
-        except Exception as e:  # file hỏng không làm dừng cả lượt
-            print(f"{src}: {e}", file=sys.stderr)
-            continue
-        bs = [b["name"] for b in cfg["buckets"] if b["name"] in need() and matches(b["match"], c["labels"])]
-        c["used"] = bool(bs and speech_min >= cfg["min_speech_minutes"])
-        append(cls_p, c)
-        cls[i] = c
-        if not c["used"]:
-            os.remove(wav)
-            continue
-        rows = build_manifest.build(i, fdir, clips=clips, **C["manifest"],
-                                    extra={"bucket": bs, "source_path": src, "file_labels": c["labels"]})
-        with open(os.path.join(mdir, i + ".jsonl"), "w", encoding="utf8") as f:
-            f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
-        append(idx_p, {"id": i, "src": src, "buckets": bs, "speech_min": round(speech_min, 2),
-                       "n_segments": len(rows), "labels": c["labels"]})
-        for b in bs:
-            have[b] += speech_min
-        print(f"+ {src} → {bs} ({speech_min:.1f} phút, {len(rows)} segment)", file=sys.stderr)
+    with ui.progress() as pg:
+        t_files = pg.add_task("file nguồn", total=len(srcs))
+        t_min = pg.add_task("phút còn thiếu", total=round(total_need, 1))
+        for src in srcs:
+            if not need():
+                break
+            pg.update(t_files, advance=1, description=f"file nguồn [dim]{os.path.basename(src)[:30]}[/]")
+            i = fid(src)
+            c = cls.get(i)
+            if c and c.get("used"):
+                st["bỏ qua (đã xử lý)"] += 1
+                continue
+            if c and not any(matches(b["match"], c["labels"]) for b in cfg["buckets"] if b["name"] in need()):
+                st["bỏ qua (đã xử lý)"] += 1
+                continue                       # đã phân loại, không bucket nào đang cần
+            wav = os.path.join(fdir, i + ".wav")
+            try:
+                if not os.path.exists(wav):
+                    normalize(src, wav, max_min)
+                tr, speech = segment.run(wav, fdir, models, **C["segment"])
+                speech_min = sum(e - s for s, e in speech) / 60
+                if c is None:
+                    labels, err = classify(models[cfg["classifier"]], wav, work, tr, cfg["classify"]) if tr else ({}, True)
+                    labels["speakers"] = n_speakers(tr)
+                    c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
+            except Exception as e:  # file hỏng không làm dừng cả lượt
+                st["lỗi"] += 1
+                pg.console.print(f"[red]lỗi[/] {src}: {e}")
+                continue
+            bs = [b["name"] for b in cfg["buckets"] if b["name"] in need() and matches(b["match"], c["labels"])]
+            c["used"] = bool(bs and speech_min >= cfg["min_speech_minutes"])
+            append(cls_p, c)
+            cls[i] = c
+            if not c["used"]:
+                st["bỏ (không bucket cần)"] += 1
+                os.remove(wav)
+                continue
+            rows = build_manifest.build(i, fdir, clips=clips, **C["manifest"],
+                                        extra={"bucket": bs, "source_path": src, "file_labels": c["labels"]})
+            with open(os.path.join(mdir, i + ".jsonl"), "w", encoding="utf8") as f:
+                f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+            append(idx_p, {"id": i, "src": src, "buckets": bs, "speech_min": round(speech_min, 2),
+                           "n_segments": len(rows), "labels": c["labels"]})
+            before = sum(need().values())
+            for b in bs:
+                have[b] += speech_min
+            pg.update(t_min, advance=round(before - sum(need().values()), 2))
+            st["lấy"] += 1
+            st["segment"] += len(rows)
+            pg.console.print(f"[green]+[/] {os.path.basename(src)} → {', '.join(bs)} ({speech_min:.1f} phút, {len(rows)} segment)")
 
-    left = need()
-    print("Đủ quota mọi bucket." if not left else f"Hết nguồn, còn thiếu (phút): { {k: round(v, 1) for k, v in left.items()} }",
-          file=sys.stderr)
-
+    ui.table("Kết quả lượt chạy", ["", ">số"], list(st.items()))
+    bucket_table("Quota sau khi chạy")
+    ui.console.print("[green]Đủ quota mọi bucket.[/]" if not need() else "[yellow]Hết nguồn, còn bucket chưa đủ quota.[/]")
 
 if __name__ == "__main__":
     main()

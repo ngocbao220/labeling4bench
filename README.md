@@ -46,6 +46,8 @@ Rồi thêm `models=local collect=local` vào mọi lệnh. Có thể ghi đè t
 python3 tools/collect.py models=local collect=local collect.buckets.0.target_minutes=60 segment.bc_max=1.5
 ```
 
+Giá trị ghi đè trên dòng lệnh phải viết không dấu (Hydra không nhận ký tự tiếng Việt trong override). Mô tả có dấu thì sửa trong file yaml.
+
 **Bucket** được xếp theo nhãn mà mô hình đoán, không theo thư mục nguồn. Ví dụ:
 
 ```yaml
@@ -56,6 +58,8 @@ python3 tools/collect.py models=local collect=local collect.buckets.0.target_min
 `match` dùng đúng các mã đáp án của bộ câu hỏi (`genre`, `channel`, `noise_type`, `distance`, `accent`), cộng thêm `speakers` (số người nói, đếm từ diarization).
 
 ## 3. Chạy pipeline (trên server)
+
+Các lệnh đều có thanh tiến trình và in kết quả dạng bảng (rich) ra stderr. stdout chỉ chứa dữ liệu, ví dụ JSON của `build_manifest.py` hay báo cáo của `stats.py`, nên vẫn chuyển hướng vào file được.
 
 **Bước 1: chạy Qwen bằng vLLM.** Lệnh in sẵn từ config:
 

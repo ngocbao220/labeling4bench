@@ -55,13 +55,21 @@ def owner(ev, tr):
     return prev[-1] if prev else None
 
 
-def build(name, d, pre, post, clips=None, extra=None):
+def build(name, d, pre, post, clips=None, extra=None, progress=False):
     """Trả về danh sách mẫu (dict) cho một file. extra: các trường ghi thêm vào mọi mẫu (bucket, file_labels...)."""
     tr = load_tr(os.path.join(d, name + "_transcript.txt"))
     evs = load_ev(os.path.join(d, name + "_turnevent.txt"))
     dur = max(t["e"] for t in tr)
     rows = []
+    pg = None
+    if progress:
+        import ui
+        pg = ui.progress()
+        pg.start()
+        task = pg.add_task(f"{name}: sự kiện → segment", total=len(evs))
     for i, ev in enumerate(evs):
+        if pg:
+            pg.advance(task)
         s, e, c = ev
         seg = owner(ev, tr)
         if seg is None:
@@ -109,6 +117,11 @@ def build(name, d, pre, post, clips=None, extra=None):
                             "-i", os.path.join(d, name + ".wav"), "-ac", "1", "-ar", "16000", out], check=True)
             row["audio"] = os.path.relpath(out, ROOT)
         rows.append(row)
+    if pg:
+        pg.stop()
+        import collections, ui
+        c = collections.Counter(r["event_auto"] for r in rows)
+        ui.table(f"{name}: {len(rows)} segment", ["event", ">số"], c.most_common())
     return rows
 
 
@@ -121,7 +134,8 @@ def main():
     argv, overrides = conf.split_argv()
     a = ap.parse_args(argv)
     C = conf.load(overrides)
-    for r in build(a.name, a.dir, clips=conf.path(C, "clips") if a.clips else None, **C["manifest"]):
+    rows = build(a.name, a.dir, clips=conf.path(C, "clips") if a.clips else None, progress=True, **C["manifest"])
+    for r in rows:
         print(json.dumps(r, ensure_ascii=False))
 
 

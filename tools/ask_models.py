@@ -12,6 +12,8 @@ Chạy:
 """
 import argparse, base64, glob, json, os, random, re, sys, urllib.request
 
+import ui
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QCFG = os.path.join(ROOT, "data", "config.json")
 
@@ -153,25 +155,28 @@ def main():
     done = {r["sample_id"] for r in load_jsonl(a.out)} if os.path.exists(a.out) else set()
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     rnd = random.Random(0)
-    n = 0
-    with open(a.out, "a", encoding="utf8") as f:
-        for r in rows:
+    todo = [r for r in rows if r["event_id"] not in done]
+    st = {"đã có từ trước": len(rows) - len(todo), "mới": 0, "lỗi parse": 0, "lỗi gọi mô hình": 0}
+    with open(a.out, "a", encoding="utf8") as f, ui.progress() as pg:
+        task = pg.add_task(name, total=len(todo))
+        for r in todo:
             sid = r["event_id"]
-            if sid in done:
-                continue
+            pg.advance(task)
             if a.fake:
                 ans, err, why = {k: rnd.choice(q["codes"]) for k, q in qs}, False, ""
             else:
                 try:
                     ans, err, why = ask(model, [clip_path(r, a.clips)], segment_context(r), qs)
                 except Exception as e:  # lỗi một mẫu không làm dừng cả lượt chạy
-                    print(f"{sid}: {e}", file=sys.stderr)
+                    st["lỗi gọi mô hình"] += 1
+                    pg.console.print(f"[red]lỗi[/] {sid}: {e}")
                     continue
             f.write(json.dumps({"sample_id": sid, "annotator": name, "answers": ans,
                                 "parse_error": err, "reasoning": why}, ensure_ascii=False) + "\n")
             f.flush()
-            n += 1
-    print(f"{name}: ghi {n} mẫu mới vào {a.out} (bỏ qua {len(done)} đã có)", file=sys.stderr)
+            st["mới"] += 1
+            st["lỗi parse"] += err
+    ui.table(f"{name} → {a.out}", ["", ">số mẫu"], list(st.items()))
 
 
 if __name__ == "__main__":

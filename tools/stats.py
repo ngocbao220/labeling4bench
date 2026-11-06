@@ -14,6 +14,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from ask_models import load_jsonl  # noqa: E402
 from audit_questions import majority  # noqa: E402
+import ui  # noqa: E402
+from rich.console import Console  # noqa: E402
 
 FIELDS = {"event": "tcontent.event", "genre": "tstyle.genre", "accent": "tstyle.accent", "age": "tstyle.age",
           "channel": "tenv.channel", "noise_type": "tenv.noise_type", "distance": "tenv.distance",
@@ -30,17 +32,15 @@ def condition(l):
     return "clean" if l.get("noise_type") == "QUIET" else "unknown"
 
 
+OUT = Console()  # báo cáo ra stdout (có thể chuyển hướng vào file)
+
+
 def table(title, rows, cols=None):
-    print(f"\n### {title}\n")
     if cols is None:
         tot = sum(rows.values()) or 1
-        print("| giá trị | số | % |\n|---|---|---|")
-        for k, v in sorted(rows.items(), key=lambda x: -x[1]):
-            print(f"| {k} | {v} | {100 * v / tot:.1f} |")
-        return
-    print("| | " + " | ".join(cols) + " |\n|---|" + "---|" * len(cols))
-    for r in sorted(rows):
-        print(f"| {r} | " + " | ".join(str(rows[r].get(c, 0)) for c in cols) + " |")
+        ui.table(title, ["giá trị", ">số", ">%"], [(k, v, f"{100 * v / tot:.1f}") for k, v in sorted(rows.items(), key=lambda x: -x[1])], OUT)
+    else:
+        ui.table(title, [""] + [">" + c for c in cols], [[r] + [rows[r].get(c, 0) for c in cols] for r in sorted(rows)], OUT)
 
 
 def main():
@@ -82,8 +82,9 @@ def main():
     for l in L:
         l["condition"] = condition(l)
 
-    print(f"# Thống kê độ phủ\n\n{len(segs)} segment từ {len({s['conversation_id'] for s in segs})} file; "
-          f"{sum(l['synthetic'] for l in L)} segment tổng hợp. Nhãn người cho {n_hum} segment.")
+    OUT.rule("[bold]Thống kê độ phủ")
+    OUT.print(f"{len(segs)} segment từ {len({s['conversation_id'] for s in segs})} file; "
+              f"{sum(l['synthetic'] for l in L)} segment tổng hợp. Nhãn người cho {n_hum} segment.")
 
     cfg = C["collect"]
     idx = os.path.join(conf.path(C, "raw"), "raw_index.jsonl")
@@ -92,10 +93,9 @@ def main():
         for r in load_jsonl(idx) if os.path.exists(idx) else []:
             for b in r["buckets"]:
                 have[b] += r["speech_min"]
-        print("\n### Phút có tiếng nói theo bucket\n\n| bucket | có | mục tiêu | đạt |\n|---|---|---|---|")
-        for b in cfg["buckets"]:
-            n, t = have[b["name"]], b["target_minutes"]
-            print(f"| {b['name']} ({b['desc']}) | {n:.1f} | {t} | {'✓' if n >= t else '✗'} |")
+        ui.table("Phút có tiếng nói theo bucket", ["bucket", "mô tả", ">có", ">mục tiêu", "đạt"],
+                 [(b["name"], b["desc"], f"{have[b['name']]:.1f}", b["target_minutes"],
+                   "✓" if have[b["name"]] >= b["target_minutes"] else "✗") for b in cfg["buckets"]], OUT)
 
     for n in list(FIELDS) + ["condition"]:
         table(f"Phân bố `{n}`", collections.Counter(str(l[n]) for l in L))
@@ -111,16 +111,16 @@ def main():
         table(f"`event` × `{dim}`", t, evs)
 
     if len(models) >= 2:
-        print("\n### Đồng thuận giữa hai mô hình đầu theo câu hỏi\n\n| câu | n | khớp % |\n|---|---|---|")
+        agr = []
         keys = sorted({k for r in models[0].values() for k in r["answers"]})
         for k in keys:
             pairs = [(r["answers"].get(k), models[1][sid]["answers"].get(k)) for sid, r in models[0].items() if sid in models[1]]
             pairs = [p for p in pairs if None not in p]
             if pairs:
-                print(f"| {k} | {len(pairs)} | {100 * sum(x == y for x, y in pairs) / len(pairs):.0f} |")
+                agr.append((k, len(pairs), round(100 * sum(x == y for x, y in pairs) / len(pairs))))
+        ui.table("Đồng thuận giữa hai mô hình đầu theo câu hỏi", ["câu", ">n", ">khớp %"], sorted(agr, key=lambda x: x[2]), OUT)
 
     q = C["quotas"]
-    print("\n### Ô chưa đạt quota\n")
     miss = []
     ev_cnt = collections.Counter(str(l["event"]) for l in L)
     miss += [f"event={e}: {ev_cnt[e]}/{q['event']}" for e in ("EOT", "MOT", "BC", "INT") if ev_cnt[e] < q.get("event", 0)]
@@ -129,7 +129,10 @@ def main():
             if v in ("None", "unknown", "UNK", "(không bucket)"):
                 continue
             miss += [f"event={e} × {dim}={v}: {row.get(e, 0)}/{q[qk]}" for e in ("EOT", "MOT", "BC", "INT") if row.get(e, 0) < q.get(qk, 0)]
-    print("\n".join(f"- {m}" for m in miss) if miss else "Tất cả ô đã đạt.")
+    if miss:
+        ui.table("Ô chưa đạt quota", ["ô", ">có", ">cần"], [m.rsplit(": ", 1)[0:1] + m.rsplit(": ", 1)[1].split("/") for m in miss], OUT)
+    else:
+        OUT.print("[green]Tất cả ô đã đạt quota.[/]")
 
     if a.csv:
         os.makedirs(a.csv, exist_ok=True)

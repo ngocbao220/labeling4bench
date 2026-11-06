@@ -19,7 +19,7 @@ Kết luận:
   KEEP     người đồng thuận nhưng mô hình sai nhiều: câu hỏi có giá trị, giữ lại
   WATCH    trường hợp còn lại
 """
-import argparse, collections, itertools, json, sys
+import argparse, collections, itertools, json, os, sys
 
 
 def load(path):
@@ -86,7 +86,7 @@ def main():
                     h.append(mj); m.append(mv)
             rows.setdefault(field, []).append((mp, h, m, ag))
 
-    print(f"{'field':26}{'model':16}{'n':>5}{'h_agree':>9}{'m_acc':>8}{'kappa':>8}  verdict")
+    out = []
     for field in sorted(rows):
         accs, kaps, hag = [], [], None
         for mp, h, m, ag in rows[field]:
@@ -95,8 +95,8 @@ def main():
             kp = kappa(h, m)
             hag = sum(ag) / len(ag) if ag else None
             accs.append(acc); kaps.append(kp)
-            f = lambda x: "   -  " if x is None else f"{x:6.2f}"
-            print(f"{field:26}{mp[-14:]:16}{n:5d}{f(hag):>9}{f(acc):>8}{f(kp):>8}")
+            f = lambda x: "-" if x is None else f"{x:.2f}"
+            out.append([field, os.path.basename(mp), n, f(hag), f(acc), f(kp), None])
         best_acc = max([x for x in accs if x is not None], default=None)
         best_kp = max([x for x in kaps if x is not None], default=None)
         if hag is not None and hag < a.min_human_agree:
@@ -107,7 +107,13 @@ def main():
             v = "KEEP"
         else:
             v = "WATCH"
-        print(f"{'':26}{'=> ' + v}")
+        out[-1][-1] = {"DROP": "[green]DROP[/]", "REWRITE": "[red]REWRITE[/]", "KEEP": "[yellow]KEEP[/]"}.get(v, v)
+    try:
+        import ui
+        ui.table("Audit câu hỏi", ["câu", "mô hình", ">n", ">h_agree", ">m_acc", ">kappa", "kết luận"], out, ui.Console())
+    except ImportError:  # không có rich: in dạng cột
+        for r in out:
+            print("\t".join("" if x is None else str(x) for x in r))
 
 
 if __name__ == "__main__":

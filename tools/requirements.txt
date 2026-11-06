@@ -1,6 +1,7 @@
 # Chỉ cần trên server chạy pipeline. Trang gán nhãn, server.py và audit_questions.py chỉ dùng stdlib;
 # các tool còn lại trong tools/ cần hydra-core để đọc config/.
 hydra-core          # đọc config/
+rich                # thanh tiến trình, bảng
 silero-vad          # segment.py: VAD
 nemo_toolkit[asr]   # segment.py: Nemotron-Diarization (Sortformer)
 sherpa-onnx         # segment.py: zipformer ASR

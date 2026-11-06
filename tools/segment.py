@@ -161,7 +161,9 @@ def main():
         tr, _ = run(a.input, a.out or os.path.dirname(a.input), C["models"], **C["segment"])
         ev = events(tr, **C["segment"])
     from collections import Counter
-    print(Counter(c for _, _, c in ev), file=sys.stderr)
+    import ui
+    cnt = Counter(c for _, _, c in ev)
+    ui.table("Sự kiện gán được", ["loại", ">số", ">%"], [(k, v, f"{100 * v / len(ev):.1f}") for k, v in cnt.most_common()])
 
 
 if __name__ == "__main__":

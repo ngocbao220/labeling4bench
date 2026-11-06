@@ -14,6 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from ask_models import load_jsonl  # noqa: E402
+import ui  # noqa: E402
 
 LABELS = {"noise": {"noise_type": "MACHINE"}, "reverb": {"distance": "FAR"},
           "phone": {"channel": "PHONE"}, "quiet": {"distance": "FAR"}}
@@ -79,9 +80,12 @@ def main():
     rnd = random.Random(a.seed)
     os.makedirs(a.clips, exist_ok=True)
     out = []
-    for r in load_jsonl(a.manifest):
-        if r.get("synthetic") or not r.get("audio"):
-            continue
+    rows = [r for r in load_jsonl(a.manifest) if not r.get("synthetic") and r.get("audio")]
+    pg = ui.progress()
+    pg.start()
+    task = pg.add_task(f"augment {a.op}", total=len(rows))
+    for r in rows:
+        pg.advance(task)
         src = os.path.join(ROOT, r["audio"])
         eid = f"{r['event_id']}_{a.op}"
         dst = os.path.join(a.clips, eid + ".wav")
@@ -91,7 +95,8 @@ def main():
                         file_labels={**(r.get("file_labels") or {}), **LABELS[a.op]}))
     with open(a.out, "w", encoding="utf8") as f:
         f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in out)
-    print(f"{len(out)} segment tổng hợp → {a.out}", file=sys.stderr)
+    pg.stop()
+    ui.table("Kết quả", ["phép", ">segment tổng hợp", "manifest", "thư mục clip"], [(a.op, len(out), a.out, a.clips)])
 
 
 if __name__ == "__main__":
