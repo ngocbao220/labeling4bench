@@ -17,6 +17,10 @@ paths:
   manifests: manifests    # manifests/<id>.jsonl
   answers: out            # câu trả lời của mô hình, thống kê
 
+# Cách tạo tiến trình worker (mọi tool chạy nhiều tiến trình đơn luồng):
+# spawn = an toàn với CUDA; fork = khởi động nhanh hơn, chỉ dùng khi tiến trình con không dùng CUDA.
+start_method: spawn
+
 dry_run: false          # collect.py: chỉ liệt kê file nguồn và quota còn thiếu
 
 hydra:

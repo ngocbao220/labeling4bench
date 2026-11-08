@@ -5,7 +5,8 @@ max_minutes_per_file: 10
 min_speech_minutes: 0.5
 seed: 0
 survey: false               # true: phân loại MỌI file nguồn để thống kê, không lấy file nào, bỏ qua quota
-workers: 4                  # số file xử lý cùng lúc TỐI ĐA (ffmpeg, ASR, gọi Qwen song song; diarization GPU vẫn lần lượt)
+workers: 4                  # số TIẾN TRÌNH tối đa, mỗi tiến trình 1 nhân (mỗi PID ≤ 100% CPU) và tự load VAD + diarization + zipformer
+                            # → VRAM ≈ workers × kích thước Nemotron-Diarization
 max_cpu_percent: 90         # chỉ nạp thêm file khi CPU cả máy dưới ngưỡng này (%); luôn giữ ít nhất 1 file chạy
 cpu_check_sec: 1.0          # nhịp đo CPU; mỗi nhịp nạp thêm tối đa 1 file
 classifier: qwen_instruct   # khoá trong models

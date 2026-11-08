@@ -8,14 +8,14 @@ Chạy:
   python3 tools/augment.py --manifest manifests/abc.jsonl --op phone --out manifests/abc_phone.jsonl
   python3 tools/augment.py --manifest ... --op reverb --rir-dir /data/rirs   |   --op quiet --gain-db -20
 """
-import argparse, glob, json, os, random, subprocess, sys
-from concurrent.futures import ThreadPoolExecutor
+import argparse, functools, glob, json, os, random, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from ask_models import load_jsonl  # noqa: E402
 import ui  # noqa: E402
+import workers  # noqa: E402
 
 LABELS = {"noise": {"noise_type": "MACHINE"}, "reverb": {"distance": "FAR"},
           "phone": {"channel": "PHONE"}, "quiet": {"distance": "FAR"}}
@@ -30,9 +30,9 @@ def rd(p):
 def apply(op, src, dst, a, rnd):
     import numpy as np, soundfile as sf
     if op == "phone":  # dải 300–3400 Hz, 8 kHz, nén µ-law, rồi trả về 16 kHz
-        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", src, "-af", "highpass=f=300,lowpass=f=3400",
+        subprocess.run(["ffmpeg", "-nostdin", "-threads", "1", "-y", "-loglevel", "error", "-i", src, "-af", "highpass=f=300,lowpass=f=3400",
                         "-ar", "8000", "-acodec", "pcm_mulaw", "-f", "wav", dst + ".tmp"], check=True)
-        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", dst + ".tmp", "-ar", "16000", "-acodec", "pcm_s16le", dst], check=True)
+        subprocess.run(["ffmpeg", "-nostdin", "-threads", "1", "-y", "-loglevel", "error", "-i", dst + ".tmp", "-ar", "16000", "-acodec", "pcm_s16le", dst], check=True)
         os.remove(dst + ".tmp")
         return {}
     x, sr = rd(src)
@@ -59,6 +59,17 @@ def apply(op, src, dst, a, rnd):
     return info
 
 
+def one(r, a):
+    """Chạy trong tiến trình con. Seed riêng theo segment: kết quả như nhau dù chạy bao nhiêu tiến trình, theo thứ tự nào."""
+    rnd = random.Random(f"{a.seed}-{r['event_id']}")
+    eid = f"{r['event_id']}_{a.op}"
+    dst = os.path.join(a.clips, eid + ".wav")
+    info = apply(a.op, os.path.join(ROOT, r["audio"]), dst, a, rnd)
+    return dict(r, event_id=eid, audio=os.path.relpath(dst, ROOT), synthetic=True,
+                augment={"op": a.op, "from": r["event_id"], **info},
+                file_labels={**(r.get("file_labels") or {}), **LABELS[a.op]})
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", required=True)
@@ -69,11 +80,12 @@ def main():
     ap.add_argument("--snr", type=float, help="dB; bỏ trống = ngẫu nhiên 0–20")
     ap.add_argument("--gain-db", type=float, default=-20)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--workers", type=int, default=os.cpu_count(), help="số segment xử lý cùng lúc")
+    ap.add_argument("--workers", type=int, default=os.cpu_count(), help="số tiến trình (mỗi tiến trình 1 nhân)")
     import conf
     argv, overrides = conf.split_argv()
     a = ap.parse_args(argv)
-    a.clips = conf.path(conf.load(overrides), "clips")
+    C = conf.load(overrides)
+    a.clips = conf.path(C, "clips")
     wavs = lambda d: sorted(glob.glob(os.path.join(d, "**", "*.wav"), recursive=True))
     if a.op == "noise":
         a._noises = wavs(a.noise_dir or ap.error("--op noise cần --noise-dir"))
@@ -82,22 +94,12 @@ def main():
     os.makedirs(a.clips, exist_ok=True)
     rows = [r for r in load_jsonl(a.manifest) if not r.get("synthetic") and r.get("audio")]
 
-    def one(r):
-        # seed riêng theo segment: kết quả như nhau dù chạy bao nhiêu luồng, theo thứ tự nào
-        rnd = random.Random(f"{a.seed}-{r['event_id']}")
-        eid = f"{r['event_id']}_{a.op}"
-        dst = os.path.join(a.clips, eid + ".wav")
-        info = apply(a.op, os.path.join(ROOT, r["audio"]), dst, a, rnd)
-        return dict(r, event_id=eid, audio=os.path.relpath(dst, ROOT), synthetic=True,
-                    augment={"op": a.op, "from": r["event_id"], **info},
-                    file_labels={**(r.get("file_labels") or {}), **LABELS[a.op]})
-
     pg = ui.progress()
     pg.start()
     task = pg.add_task(f"augment {a.op} ×{a.workers}", total=len(rows))
     out = []
-    with ThreadPoolExecutor(a.workers) as ex:
-        for r in ex.map(one, rows):  # giữ thứ tự của manifest
+    with workers.pool(a.workers, C["start_method"]) as ex:   # nhiều tiến trình, mỗi tiến trình 1 nhân
+        for r in ex.map(functools.partial(one, a=a), rows, chunksize=4):  # giữ thứ tự của manifest
             out.append(r)
             pg.advance(task)
     with open(a.out, "w", encoding="utf8") as f:

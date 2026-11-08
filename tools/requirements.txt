@@ -2,7 +2,8 @@
 # các tool còn lại trong tools/ cần hydra-core để đọc config/.
 hydra-core          # đọc config/
 rich                # thanh tiến trình, bảng
-psutil              # collect.py: đo CPU để điều tiết số worker
+psutil              # collect.py: đo CPU để điều tiết số tiến trình
+threadpoolctl       # workers.py: ép BLAS 1 luồng trong mỗi tiến trình
 silero-vad          # segment.py: VAD
 nemo_toolkit[asr]   # segment.py: Nemotron-Diarization (Sortformer)
 sherpa-onnx         # segment.py: zipformer ASR

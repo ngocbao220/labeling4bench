@@ -11,7 +11,7 @@ asr:                      # zipformer qua sherpa-onnx
   joiner: /models/zipformer-vi/joiner.onnx
   tokens: /models/zipformer-vi/tokens.txt
   provider: cpu           # bản sherpa-onnx từ pip chỉ có CPU; đổi cuda nếu cài bản build GPU
-  threads: 4
+                          # luôn 1 luồng mỗi tiến trình; số nhân CPU dùng = collect.workers
 qwen_instruct:            # chạy bằng: vllm serve <path> --served-model-name <served_name> --port 8001
   path: /models/Qwen3-Omni-30B-A3B-Instruct
   base_url: http://127.0.0.1:8001/v1

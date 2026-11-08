@@ -112,7 +112,7 @@ def build(name, d, pre, post, clips=None, extra=None, progress=False, workers=1)
         row.update(extra or {})
         if clips:
             out = os.path.join(clips, row["event_id"] + ".wav")
-            jobs.append(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", str(t0), "-to", str(t1),
+            jobs.append(["ffmpeg", "-nostdin", "-threads", "1", "-y", "-loglevel", "error", "-ss", str(t0), "-to", str(t1),
                          "-i", os.path.join(d, name + ".wav"), "-ac", "1", "-ar", "16000", out])
             row["audio"] = os.path.relpath(out, ROOT)
         rows.append(row)

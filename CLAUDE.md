@@ -17,7 +17,7 @@ Không có build hay lint. Trang và server chỉ cần Python 3 (stdlib):
     python3 server.py                                    # http://127.0.0.1:8000
     HOST=0.0.0.0 PORT=8000 EDIT_TOKEN=matkhau python3 server.py
 
-Mở thẳng `index.html` hoặc qua GitHub Pages (https://ngocbao220.github.io/github-io/) cũng chạy được nhưng chỉ đọc: không có `/api/config`, nút sửa câu hỏi tự ẩn, trang dùng câu hỏi mặc định trong `index.html`.
+Mở thẳng `index.html` hoặc qua GitHub Pages (https://ngocbao220.github.io/labeling4bench/) cũng chạy được nhưng chỉ đọc: không có `/api/config`, nút sửa câu hỏi tự ẩn, trang dùng câu hỏi mặc định trong `index.html`.
 
 Pipeline dựng data (chạy trên server có GPU; luồng đầy đủ và lệnh trong `docs/quy-trinh.md`):
 
@@ -44,6 +44,7 @@ Không có test suite. Kiểm tra bằng các chế độ `--dry-run` / `--fake`
 - **`manifests/*.jsonl`**: mỗi dòng một segment, gồm `event_auto`, `times` (mốc đo latency theo loại sự kiện, tính theo giây trong clip), `audio` (đường dẫn clip), `bucket`, `file_labels`, và các trường `*_auto`. Mẫu tổng hợp từ `augment.py` có `synthetic: true`. Khi chạy có server, trang đọc manifest qua `GET /api/samples` (chỉ những mẫu có clip) và thay cho `SAMPLES` cứng.
 - **`tools/audit_questions.py`**: so nhãn người với nhãn mô hình theo từng câu hỏi, kết luận DROP (để mô hình tự gán) / REWRITE / KEEP / WATCH.
 - **Config (`config/`, Hydra)**: `config.yaml` chứa `paths` (thư mục dùng chung: raw, clips, manifests, answers) và gom các nhóm `models/` (đường dẫn mô hình), `collect/` (nguồn, bucket, quota phút, phân loại mức file), `segment/` (ngưỡng gán sự kiện), `manifest/` (cửa sổ clip) và `quotas/` (chỉ tiêu segment). Mỗi tham số chỉ nằm ở **một** file: code không có giá trị mặc định trùng với config, và các tool không có cờ dòng lệnh trùng với khoá config. `collect.py` dùng `@hydra.main`. Các tool còn lại dùng argparse, đọc config qua `tools/conf.py` (`conf.load`), và nhận ghi đè dạng `key=value` đặt ở bất kỳ đâu trên dòng lệnh (`conf.split_argv`). Cấu hình riêng của từng máy để ở `config/<nhóm>/local.yaml`.
+- **Song song**: các bước tốn CPU (`collect.py`, `augment.py`) chạy **nhiều tiến trình, mỗi tiến trình 1 luồng** qua `tools/workers.py` (`pool()` + `single_thread()`), để mỗi PID ≤ 100% CPU. Tải CPU chỉ chỉnh bằng số tiến trình; zipformer và ffmpeg (`-threads 1`) cố định 1 luồng. Hàm worker phải ở cấp module (`collect.process_file`) để `spawn` pickle được. Gọi vLLM (`ask_models.py`) và cắt clip (`build_manifest.py`, mỗi lệnh ffmpeg một PID) vẫn dùng luồng, vì gần như không tốn CPU của tiến trình chính.
 - **Không commit lên git**: `config/*/local.yaml`, `clips/`, `data/raw/`, `out/` (xem `.gitignore`).
 
 ## Quy ước

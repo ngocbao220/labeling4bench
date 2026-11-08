@@ -35,8 +35,8 @@ def _diar_model(path, device):
     return m
 
 
-# Chạy nhiều luồng (collect.py): VAD và diarization dùng chung một mô hình nên có khoá
-# (diarization chiếm GPU, chạy lần lượt); ASR chạy CPU nên mỗi luồng một recognizer, chạy song song.
+# collect.py chạy nhiều tiến trình, mỗi tiến trình một bản mô hình. Khoá chỉ có tác dụng nếu gọi từ nhiều luồng
+# trong cùng tiến trình (VAD, diarization dùng chung mô hình); ASR mỗi luồng một recognizer.
 _VAD_LOCK, _DIAR_LOCK, _LOCAL = threading.Lock(), threading.Lock(), threading.local()
 
 
@@ -74,7 +74,7 @@ class ASR:
         import sherpa_onnx
         self.r = sherpa_onnx.OfflineRecognizer.from_transducer(
             encoder=cfg["encoder"], decoder=cfg["decoder"], joiner=cfg["joiner"], tokens=cfg["tokens"],
-            num_threads=cfg.get("threads", 4), sample_rate=16000, decoding_method="greedy_search",
+            num_threads=1, sample_rate=16000,  # 1 luồng: song song bằng nhiều tiến trình (collect.workers) decoding_method="greedy_search",
             provider=cfg.get("provider", "cpu"))
 
     def __call__(self, samples):

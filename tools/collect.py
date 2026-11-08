@@ -12,7 +12,7 @@ Chạy (Hydra, config ở config/):
 Chạy lại tiếp tục từ chỗ dừng (đọc raw_index.jsonl, classified.jsonl). Tăng target_minutes để lấy thêm.
 """
 import glob, hashlib, json, os, random, subprocess, sys, time
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, wait
 
 import psutil
 
@@ -24,6 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import ask_models, build_manifest, conf, segment, ui  # noqa: E402
+import workers as workers_mod  # noqa: E402
 
 EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".aac", ".mp4", ".mkv", ".webm", ".mov", ".avi"}
 
@@ -58,20 +59,20 @@ def files(sources, seed):
 
 
 def normalize(src, dst, max_min):
-    subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", src, "-t", str(max_min * 60),
+    subprocess.run(["ffmpeg", "-nostdin", "-threads", "1", "-y", "-loglevel", "error", "-i", src, "-t", str(max_min * 60),
                     "-vn", "-ac", "1", "-ar", "16000", dst], check=True)
 
 
 def excerpts(wav, work, tr, n, dur):
-    stem = os.path.splitext(os.path.basename(wav))[0]  # tên riêng theo file để các luồng không ghi đè nhau
     """n đoạn ~dur giây rải đều trong file, bắt đầu tại đầu một lượt nói."""
+    stem = os.path.splitext(os.path.basename(wav))[0]  # tên riêng theo file để các tiến trình không ghi đè nhau
     if not tr:
         return []
     picks = [tr[int(i * len(tr) / n)]["s"] for i in range(n)]
     out = []
     for i, s in enumerate(picks):
         p = os.path.join(work, f"{stem}_ex{i}.wav")
-        subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-ss", str(s), "-t", str(dur), "-i", wav, p], check=True)
+        subprocess.run(["ffmpeg", "-nostdin", "-threads", "1", "-y", "-loglevel", "error", "-ss", str(s), "-t", str(dur), "-i", wav, p], check=True)
         out.append(p)
     return out
 
@@ -83,6 +84,33 @@ def classify(model, wav, work, tr, k):
            "Câu về giọng hoặc tuổi thì xét người nói chính.\nTranscript rút gọn (máy chép, có thể sai): " + text)
     ans, err, _, raw = ask_models.ask(model, excerpts(wav, work, tr, k["n_excerpts"], k["excerpt_sec"]), ctx, qs)
     return {k.split(".", 1)[1]: v for k, v in ans.items()}, err, raw
+
+
+# ---- tiến trình worker: mỗi tiến trình 1 nhân, load mô hình một lần (segment cache theo tiến trình) ----
+_W = {}
+
+
+def _worker_init(ctx):
+    _W.update(ctx)
+
+
+def process_file(src, i, c):
+    """Chạy trong tiến trình con: chuẩn hoá, VAD + diarization + ASR, phân loại (nếu chưa có). Không đụng trạng thái chung."""
+    w = _W
+    wav = os.path.join(w["fdir"], i + ".wav")
+    if not os.path.exists(wav):
+        normalize(src, wav, w["max_min"])
+    tr, speech = segment.run(wav, w["fdir"], w["models"], **w["segment"])
+    speech_min = sum(e - s for s, e in speech) / 60
+    if c is None:
+        labels, err, raw = classify(w["classifier"], wav, w["work"], tr, w["classify"]) if tr else ({}, True, "(không có transcript)")
+        labels["speakers"] = n_speakers(tr)
+        c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
+        if raw:
+            c["raw"] = raw  # câu trả lời thô của mô hình khi lỗi parse
+    for f in glob.glob(os.path.join(w["work"], i + "_ex*.wav")):
+        os.remove(f)
+    return wav, speech_min, c
 
 
 def n_speakers(tr, min_share=0.1):
@@ -166,22 +194,6 @@ def main(C):
             return "BỎ", f"khớp {', '.join(fit)} nhưng đã đủ quota", []
         return "LẤY", f"vào {', '.join(bs)} ({speech_min:.1f} phút)", bs
 
-    def process(src, i, c):
-        """Chạy trong luồng phụ: chuẩn hoá, VAD + diarization + ASR, phân loại (nếu chưa có). Không đụng trạng thái chung."""
-        wav = os.path.join(fdir, i + ".wav")
-        if not os.path.exists(wav):
-            normalize(src, wav, max_min)
-        tr, speech = segment.run(wav, fdir, models, **C["segment"])
-        speech_min = sum(e - s for s, e in speech) / 60
-        if c is None:
-            labels, err, raw = classify(m, wav, work, tr, cfg["classify"]) if tr else ({}, True, "(không có transcript)")
-            labels["speakers"] = n_speakers(tr)
-            c = {"id": i, "src": src, "labels": labels, "parse_error": err, "speech_min": round(speech_min, 2)}
-            if raw:
-                c["raw"] = raw  # câu trả lời thô của mô hình khi lỗi parse
-        for f in glob.glob(os.path.join(work, i + "_ex*.wav")):
-            os.remove(f)
-        return wav, speech_min, c
 
     def failed(c):
         return c.get("parse_error") and not c["labels"].get("genre")
@@ -196,26 +208,22 @@ def main(C):
 
     peak = [0]
     workers, cpu_max, cores = cfg["workers"], cfg["max_cpu_percent"], psutil.cpu_count() or 1
-    # mỗi worker chạy zipformer với asr.threads luồng: tổng vượt số nhân thì CPU quá tải ngay từ đầu
-    thr = models["asr"].get("threads", 1)
-    if models["asr"].get("provider") == "cpu" and workers * thr > cores:
-        models["asr"]["threads"] = max(1, cores // workers)
-        ui.console.print(f"[yellow]{workers} worker × {thr} luồng ASR > {cores} nhân CPU: giảm asr.threads xuống {models['asr']['threads']}[/]")
+    ctx = {"fdir": fdir, "work": work, "max_min": max_min, "models": models, "segment": C["segment"],
+           "classify": cfg["classify"], "classifier": m}
     psutil.cpu_percent(None)  # mốc đầu cho lần đo sau
-    with ui.progress() as pg, ThreadPoolExecutor(workers) as ex:
+    ex = workers_mod.pool(workers, C["start_method"], _worker_init, (ctx,))
+    with ui.progress() as pg, ex:
         t_files = pg.add_task("file nguồn", total=len(srcs))
         t_min = pg.add_task("phút còn thiếu", total=round(total_need, 1))
         it, running, seen, exhausted = iter(srcs), {}, set(), [False]
 
-        per_file = max(1, models["asr"].get("threads", 1)) if models["asr"].get("provider") == "cpu" else 1
-
         def submit(cpu):
-            """Nạp thêm file theo phần CPU còn trống: mỗi file ước tính chiếm `per_file` nhân (asr.threads khi ASR chạy CPU).
+            """Nạp thêm file theo phần CPU còn trống: mỗi tiến trình worker là 1 nhân.
             Không vượt `workers`, dừng khi đủ quota; luôn giữ ít nhất 1 file chạy."""
             # tải ước tính (số nhân): lấy số lớn hơn giữa CPU đo được và phần các file đang chạy sẽ dùng,
             # vì file vừa nạp chưa kịp đẩy CPU lên
-            load = max(cpu / 100 * cores, len(running) * per_file)
-            room = int((cpu_max / 100 * cores - load) / per_file)
+            load = max(cpu / 100 * cores, len(running))
+            room = int(cpu_max / 100 * cores - load)
             n = max(room, 0 if running else 1)
             while n > 0 and len(running) < workers and active():
                 src = next(it, None)
@@ -231,7 +239,7 @@ def main(C):
                     pg.advance(t_files)
                     continue
                 seen.add(i)
-                running[ex.submit(process, src, i, cls.get(i))] = src
+                running[ex.submit(process_file, src, i, cls.get(i))] = src
                 n -= 1
 
         def handle(fut):
@@ -241,7 +249,7 @@ def main(C):
                 wav, speech_min, c = fut.result()
             except Exception as e:  # file hỏng không làm dừng cả lượt
                 st["lỗi"] += 1
-                pg.console.print(f"[red]lỗi[/] {src}: {e}")
+                pg.console.print(f"[red]lỗi[/] {src}: {type(e).__name__}: {e}")
                 return
             i = c["id"]
             c["decision"], c["reason"], bs = decide(c, speech_min)
@@ -283,7 +291,7 @@ def main(C):
             cpu = psutil.cpu_percent(None)
             peak[0] = max(peak[0], len(running))
             submit(cpu)
-            pg.update(t_files, description=f"file nguồn [dim]{len(running)}/{workers} luồng · CPU {cpu:.0f}%[/]")
+            pg.update(t_files, description=f"file nguồn [dim]{len(running)}/{workers} tiến trình · CPU {cpu:.0f}%[/]")
             if not running and (exhausted[0] or not active()):
                 break
 
