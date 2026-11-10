@@ -94,7 +94,7 @@ canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .exrow:first-child{border-top:0}
 .exrow .dplay{margin-left:0}
 
-.wavewrap.ctx{height:104px}
+.wavewrap.ctx{height:72px}
 .ctxbox{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px}
 .step{font-size:14px;line-height:1.5;padding:8px 12px;border-radius:8px;background:var(--accent-soft)}
 .step.s2{background:#e6f4ea}
@@ -106,12 +106,13 @@ canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .gate{font-size:13px;color:var(--muted)}
 .gate .bar{display:inline-block;vertical-align:middle;width:90px;height:6px;border-radius:3px;background:#e5e7eb;margin:0 6px;overflow:hidden}
 .gate .bar i{display:block;height:100%;background:var(--accent)}
+.trs:empty{display:none}
 .trs{display:grid;gap:4px;font-size:14px;max-height:190px;overflow:auto}
 .tl{display:grid;grid-template-columns:96px 1fr;gap:8px;padding:3px 0;border-bottom:1px dotted var(--line)}
 .tl .who{color:var(--muted);font-size:13px}.tl .who.u{color:var(--accent);font-weight:600}
 .tl.mask .tx{color:#9aa0a6;font-style:italic}
 .tl.aft .tx{color:#188038}
-.legend{font-size:12px;color:var(--muted)}
+.mocs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}.mocs button{font:inherit;font-size:14px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer}.mocs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .hide{display:none!important}
 .tag.u{background:#fff7e0;border-color:#f0d58c;color:#7a5b00}
 .marks{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 0;font-size:14px;color:var(--muted)}
@@ -181,13 +182,9 @@ canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <span class="time" id="time">0:00 / 0:00</span>
     </div>
 
-    <div class="ctxbox hide" id="ctxbox" aria-label="Ngữ cảnh và đà nói">
-      <div class="step" id="cstep" role="status"></div>
-      <div class="cbar"><button type="button" id="cb0">⏮ Nghe từ đầu</button><button type="button" id="cb4">🔁 Nghe 4 giây cuối trước vạch đỏ</button><button type="button" id="cb5" disabled>▶ Nghe phần sau vạch đỏ</button><label class="gate"><input type="checkbox" id="capause" checked> Tự dừng ở mỗi vạch kẻ</label></div>
-      <div class="gate" id="cgate"></div>
+    <div class="ctxbox hide" id="ctxbox" aria-label="Ngữ cảnh">
+      <div class="cbar"><button type="button" id="cb0">⏮ Nghe từ đầu</button><button type="button" id="cb4">🔁 Nghe lại 4 giây trước mốc</button><label class="gate"><input type="checkbox" id="capause" checked> Tự dừng ở mỗi vạch nét đứt</label></div>
       <div class="trs" id="ctrs" aria-label="Lời các lượt trước"></div>
-      <div class="cbar"><button type="button" class="pri" id="cunlock" disabled>🔓 Xong bước 1, mở phần sau vạch đỏ</button><span class="gate" id="cwhy"></span></div>
-      <div class="legend">Thanh xanh: lượt của người dùng. Thanh xám: bên kia. Vạch kẻ đứt là điểm VAD bắt được kết thúc âm thanh (bắt đầu quãng lặng); khi phát tới vạch, trình phát tự dừng để bạn chọn.</div>
     </div>
     <div class="marks" id="marks"><button type="button" class="mk" id="mkbtn" title="Bấm đúng lúc người dùng nói xong">📍 Đánh dấu: người dùng nói xong</button><button type="button" id="mkm" aria-label="Lùi 0,1 giây">−0,1s</button><button type="button" id="mkp" aria-label="Tiến 0,1 giây">+0,1s</button><button type="button" id="mkx">Xoá mốc</button><span class="mkt" id="mkt">Chưa đánh dấu</span></div>
     <div class="tabs" id="tabs" role="tablist" aria-label="Phương diện gán nhãn"></div>
@@ -206,17 +203,14 @@ canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <hr>
     </section>
 
-    <section data-for="tpred tcontent tvoice">
+    <section data-for="tcontent tvoice">
       <h3>Luật gán nhãn: xét đà nói, không chỉ nghĩa câu cuối</h3>
       <p>Một câu có thể trọn nghĩa mà người đó vẫn nói tiếp, hoặc cụt nghĩa mà đã dừng. Vì vậy hãy nghe cả cuộc trò chuyện, đừng chỉ đọc chữ của câu cuối.</p>
       <ol>
-        <li><b>Nghe từ đầu</b> để biết ai hỏi, ai đáp, đang nói chuyện gì.</li>
-        <li><b>Nghe lại 4 giây cuối</b> trước vạch đỏ, chú ý ba thứ: giọng (hạ, ngang hay lên), độ to (nhỏ dần hay giữ), nhịp (chậm lại hay dồn lên).</li>
-        <li><b>Phát tới vạch kẻ đứt</b>: trình phát tự dừng ở mỗi điểm VAD bắt được kết thúc âm thanh. Dừng lại, nghĩ xem người nói sẽ làm gì tiếp, rồi mới nghe tiếp hoặc trả lời.</li>
-        <li><b>Trả lời tab “Đà nói”</b> khi chưa nghe phần sau. Chữ của lượt đang diễn ra bị che có chủ ý.</li>
-        <li><b>Mở phần sau vạch đỏ</b>, rồi trả lời tab “Nội dung” theo điều thực sự xảy ra: chính người dùng nói tiếp hay bên kia nhận lời.</li>
+        <li><b>Nghe từ đầu.</b> Trình phát tự dừng ở mỗi <b>vạch nét đứt</b> (mốc 1, 2, 3…): chỗ âm thanh kết thúc.</li>
+        <li><b>Ở mỗi mốc</b>, trả lời các câu “Ở mốc N” dựa vào cách nói (giọng hạ hay ngang, nhỏ dần hay giữ, chậm lại hay dồn lên) và các lượt trước, không chỉ dựa vào nghĩa câu vừa nói.</li>
+        <li><b>Bấm ▶ để nghe tiếp</b> tới mốc kế. Có thể nghe lại, nhưng không tua tới chỗ chưa nghe.</li>
       </ol>
-      <p>Không sửa câu trả lời ở tab “Đà nói” sau khi đã mở phần sau, để biết đoán lúc chưa biết kết quả có chính xác không.</p>
       <hr>
     </section>
 
@@ -421,82 +415,6 @@ function scoreQs(prefix,scale,descs){
 var PANELS = {
  "turntaking": [
   {
-   "id": "tpred",
-   "name": "Đà nói",
-   "intro": "Bước 1. Chỉ dựa vào âm thanh và lời tới vạch đỏ (điểm cắt). Đừng đoán theo nghĩa của câu cuối.",
-   "qs": [
-    {
-     "id": "momentum",
-     "codes": [
-      "CLOSING",
-      "CARRYING",
-      "HESITANT",
-      "UNK"
-     ],
-     "title": "Ngay trước vạch đỏ, đà nói của người dùng đang thế nào?",
-     "desc": "Nghe giọng, hơi và nhịp ở 3-4 giây cuối.",
-     "opts": [
-      [
-       "Đang khép lại",
-       "Giọng hạ, nhỏ dần, nhịp chậm lại như sắp dừng"
-      ],
-      [
-       "Còn đà đi tiếp",
-       "Giọng và nhịp giữ nguyên hoặc đang dồn lên, chưa có dấu hiệu dừng"
-      ],
-      [
-       "Ngập ngừng",
-       "Kéo dài âm, “ờ”, “ừm”, nhịp đứt quãng, đang tìm lời"
-      ],
-      [
-       "Không rõ"
-      ]
-     ]
-    },
-    {
-     "id": "predict",
-     "codes": [
-      "PRED_STOP",
-      "PRED_CONT",
-      "UNK"
-     ],
-     "title": "Chỉ với những gì đã nghe, theo bạn người dùng sẽ làm gì ngay sau vạch đỏ?",
-     "opts": [
-      [
-       "Dừng lại, nhường lời"
-      ],
-      [
-       "Nói tiếp"
-      ],
-      [
-       "Không rõ"
-      ]
-     ]
-    },
-    {
-     "id": "basis",
-     "codes": [
-      "PROSODY",
-      "SEMANTIC",
-      "BOTH"
-     ],
-     "title": "Bạn dựa chủ yếu vào đâu để đoán?",
-     "opts": [
-      [
-       "Cách nói",
-       "Giọng, hơi, nhịp"
-      ],
-      [
-       "Ý nghĩa của câu vừa nói"
-      ],
-      [
-       "Cả hai như nhau"
-      ]
-     ]
-    }
-   ]
-  },
-  {
    "id": "tstyle",
    "name": "Phong cách",
    "intro": "Nhận xét chung về cuộc trò chuyện chứa lượt nói của người dùng.",
@@ -627,7 +545,7 @@ var PANELS = {
   {
    "id": "tcontent",
    "name": "Nội dung",
-   "intro": "Bước 2. Sau khi mở phần sau vạch đỏ, chọn theo điều thực sự xảy ra tiếp theo.",
+   "intro": "Chọn theo lượt nói của người dùng ở cuối đoạn. Mẫu có nhiều mốc: trả lời riêng cho từng mốc.",
    "qs": [
     {
      "id": "event",
@@ -706,7 +624,7 @@ var PANELS = {
   {
    "id": "tvoice",
    "name": "Sắc thái giọng",
-   "intro": "Chọn theo giọng của người dùng ở cuối đoạn.",
+   "intro": "Chọn theo giọng của người dùng ở cuối đoạn. Mẫu có nhiều mốc: trả lời riêng cho từng mốc.",
    "qs": [
     {
      "id": "final_pitch",
@@ -1508,24 +1426,29 @@ var API={on:false,needsToken:false};
 var tabsEl=document.getElementById("tabs"), panelsEl=document.getElementById("panels");
 var activePanels=[], activeId=null, uid=0;
 panelsEl.addEventListener("change",updCounts);
+panelsEl.addEventListener("click",function(e){var b=e.target.closest(".mocs button");if(!b)return;setMoc(+b.dataset.m,true);});
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
-function buildQ(q,num){
+function buildQ(q,num,suf,ttl){suf=suf||"";
   var maxLen=0;
   q.opts.forEach(function(o){var s=q.score?o[1]:o[0];if(s.length>maxLen)maxLen=s.length;});
   var hasSub=q.opts.some(function(o){return !q.score&&o[1];});
   var cls=(!q.score&&maxLen<=24&&!hasSub)?"row":"stack";
-  var h='<div class="q"><h4><b>Câu '+num+':</b> '+esc(q.title)+'</h4>';
+  var h='<div class="q"><h4><b>Câu '+num+':</b> '+esc(ttl||q.title)+'</h4>';
   if(q.desc)h+='<p class="desc">'+esc(q.desc)+'</p>';
   h+='<div class="opts '+cls+'">';
   q.opts.forEach(function(o,i){
     var id="o"+(uid++), key, txt, sub="";
     if(q.score){key=o[0]==="0"?"–":o[0];txt=o[1];sub=o[2]||"";}else{key="ABCDEFGHIJ"[i]+".";txt=o[0];sub=o[1]||"";}
-    h+='<label class="opt"><input type="radio" name="'+q.id+'" id="'+id+'" value="'+esc((q.codes&&q.codes[i])||(q.score?o[0]:String(i)))+'"><span class="key">'+key+'</span><span class="txt">'+esc(txt)+(sub?'<small>'+esc(sub)+'</small>':"")+'</span></label>';
+    h+='<label class="opt"><input type="radio" name="'+q.id+suf+'" id="'+id+'" value="'+esc((q.codes&&q.codes[i])||(q.score?o[0]:String(i)))+'"><span class="key">'+key+'</span><span class="txt">'+esc(txt)+(sub?'<small>'+esc(sub)+'</small>':"")+'</span></label>';
   });
   return h+'</div></div>';
 }
-function answered(p){var n=0;p.qs.forEach(function(q){if(panelsEl.querySelector('input[name="'+q.id+'"]:checked'))n++;});return n;}
-function updCounts(){activePanels.forEach(function(p){var el=document.getElementById("cnt-"+p.id);if(el)el.textContent=answered(p)+"/"+p.qs.length;});}
+var PERMOC={tcontent:1,tvoice:1};
+function nmoc(){return cur&&cur.ctx?CTX[cur.id].moc.length:1;}
+function perMoc(p){return !!(cur&&cur.ctx&&PERMOC[p.id]);}
+function sufs(p){var o=[];if(perMoc(p)){for(var m=1;m<=nmoc();m++)o.push("@m"+m);}else o.push("");return o;}
+function answered(p){var n=0;sufs(p).forEach(function(sf){p.qs.forEach(function(q){if(panelsEl.querySelector('input[name="'+q.id+sf+'"]:checked'))n++;});});return n;}
+function updCounts(){activePanels.forEach(function(p){var el=document.getElementById("cnt-"+p.id);if(el)el.textContent=answered(p)+"/"+(p.qs.length*sufs(p).length);});}
 function showPanel(id){
   activeId=id;
   resetScroll();
@@ -1541,20 +1464,25 @@ function buildPanels(s){
   var tags=s.tags,k=SAMPLES.indexOf(s);
   activePanels=[];tabsEl.innerHTML="";panelsEl.innerHTML="";
   tags.forEach(function(t){(CONFIG.panels[t]||[]).forEach(function(p){
-    if(p.id==="tpred"&&!s.ctx)return;
     var c=Object.assign({},p);
     if(p.type==="score"){var d=(p.descs&&p.descs.length)?p.descs:s.content;c.qs=scoreQs(p.prefix||p.id,p.scale,rot(d,s.id+(p.rot||0))).concat(p.qs||[]);}
     activePanels.push(c);});});
   activePanels.forEach(function(p){
     var b=document.createElement("button");b.type="button";b.className="tab";b.id="tb-"+p.id;b.setAttribute("role","tab");
     b.innerHTML=esc(p.name)+'<span class="n" id="cnt-'+p.id+'"></span>';
-    b.addEventListener("click",function(){if(p.id==="tcontent"&&cur&&cur.ctx&&!cst(cur).unlocked){ctxNote("Tab này mở sau bước 1: nghe hết, trả lời tab “Đà nói”, rồi bấm “Mở phần sau vạch đỏ”.");return;}showPanel(p.id);});
+    b.addEventListener("click",function(){showPanel(p.id);});
     tabsEl.appendChild(b);
     var d=document.createElement("section");d.className="panel";d.id="pn-"+p.id;d.setAttribute("role","tabpanel");
-    d.innerHTML='<p class="intro">'+esc(p.intro)+'</p><div class="qlist">'+p.qs.map(function(q,i){return buildQ(q,i+1);}).join("")+'</div>';
+    if(perMoc(p)){
+      var K=nmoc(),h2='<p class="intro">'+esc(p.intro)+'</p><div class="mocs" role="group" aria-label="Chọn mốc">';
+      for(var m=1;m<=K;m++)h2+='<button type="button" data-m="'+m+'" aria-pressed="'+(m===1?"true":"false")+'">Mốc '+m+'</button>';
+      h2+='</div>';
+      for(var m=1;m<=K;m++)h2+='<div class="qlist moc'+(m===1?'':' hide')+'" data-m="'+m+'">'+p.qs.map(function(q,i){return buildQ(q,i+1,"@m"+m,"Ở mốc "+m+": "+q.title.replace(/^Ở cuối đoạn,\s*/,"").replace(/^./,function(ch){return ch.toLowerCase();}));}).join("")+'</div>';
+      d.innerHTML=h2;
+    }else d.innerHTML='<p class="intro">'+esc(p.intro)+'</p><div class="qlist">'+p.qs.map(function(q,i){return buildQ(q,i+1);}).join("")+'</div>';
     panelsEl.appendChild(d);
   });
-  showPanel(activePanels[0].id);updCounts();ctxRefresh();
+  curMoc=1;showPanel(s.ctx?"tvoice":activePanels[0].id);updCounts();ctxRefresh();
 }
 
 /* ---- Trình phát waveform ---- */
@@ -1604,7 +1532,7 @@ var dAudio=null,dBtn=null;
 function toggle(){
   stopDoc();
   try{
-    if(audio.paused){if(cur.ctx&&!cst(cur).unlocked&&audio.currentTime>=cur.cut-0.05)audio.currentTime=0;var pr=audio.play();if(pr&&pr.catch)pr.catch(function(){});setPlayIcon(true);}
+    if(audio.paused){var pr=audio.play();if(pr&&pr.catch)pr.catch(function(){});setPlayIcon(true);}
     else{audio.pause();setPlayIcon(false);}
   }catch(e){}
 }
@@ -1629,113 +1557,68 @@ document.getElementById("doc").addEventListener("click",function(e){
     var pr=dAudio.play();if(pr&&pr.catch)pr.catch(function(){stopDoc();});
   }catch(x){stopDoc();}
 });
-/* ---- Ngữ cảnh + đà nói khách quan ---- */
-var CST={};
-function cst(s){return CST[s.id]||(CST[s.id]={bins:{},unlocked:false});}
-var BIN=0.5;
-function lo(c){return Math.max(0,c.cut-12);}
-function coverage(s){
-  var c=CTX[s.id],st=cst(s),a=Math.floor(lo(c)/BIN),b=Math.ceil(c.cut/BIN)-1,n=0,t=0;
-  for(var i=a;i<=b;i++){t++;if(st.bins[i])n++;}
-  return t?n/t:1;
-}
+/* ---- Ngữ cảnh: các mốc VAD ---- */
+var CST={},curMoc=1;
+Object.keys(CTX).forEach(function(k){var c=CTX[k],t=c.vad.concat([c.cut]).sort(function(a,b){return a-b;}),o=[];
+  t.forEach(function(v){if(o.length&&v-o[o.length-1]<0.3){if(v===c.cut)o[o.length-1]=v;}else o.push(v);});c.moc=o;});
+function cst(s){return CST[s.id]||(CST[s.id]={max:0,last:null});}
 function who(sp){return sp==="S0"?"Người A":"Người B";}
 function seek(t){
   if(!audio||!audio.duration)return;
-  if(cur.ctx&&!cst(cur).unlocked)t=Math.min(t,cur.cut-0.05);
-  audio.currentTime=Math.max(0,t);cst(cur).last=audio.currentTime;
+  if(cur.ctx)t=Math.min(t,cst(cur).max+0.05);
+  audio.currentTime=Math.max(0,t);if(cur.ctx)cst(cur).last=audio.currentTime;
 }
-function ctxNote(m){var el=document.getElementById("cwhy");if(el){el.textContent=m;el.style.color="#b3261e";}}
-function tpredDone(){
-  var p=activePanels.filter(function(x){return x.id==="tpred";})[0];
-  return p?answered(p)===p.qs.length:true;
+function autoPause(){var e=document.getElementById("capause");return !e||e.checked;}
+function setMoc(m,jump){
+  curMoc=m;
+  document.querySelectorAll("#panels .mocs button").forEach(function(b){b.setAttribute("aria-pressed",+b.dataset.m===m?"true":"false");});
+  document.querySelectorAll("#panels .qlist.moc").forEach(function(d){d.classList.toggle("hide",+d.dataset.m!==m);});
+  if(jump&&cur&&cur.ctx&&audio){var t=CTX[cur.id].moc[m-1];if(t<=cst(cur).max+0.05){audio.pause();setPlayIcon(false);seek(t);}}
+  if(cur&&audio)draw();
 }
 function ctxRefresh(){
   if(!cur||!cur.ctx)return;
-  var c=CTX[cur.id],st=cst(cur),cov=coverage(cur),ok=cov>=0.85,done=tpredDone();
-  var step=document.getElementById("cstep");
-  step.className="step"+(st.unlocked?" s2":"");
-  step.innerHTML=st.unlocked
-    ?"<b>Bước 2/2.</b> Đã mở phần sau vạch đỏ. Nghe tiếp rồi trả lời tab “Nội dung”. Đánh dấu thời điểm người dùng nói xong ở dưới nếu có."
-    :"<b>Bước 1/2.</b> Bạn chỉ có âm thanh và lời tới vạch đỏ. Nghe từ đầu (tự dừng ở mỗi vạch kẻ), trả lời tab “Đà nói”, rồi mở phần sau. Lời của lượt đang diễn ra tại vạch đỏ được che có chủ ý.";
-  document.getElementById("cb5").disabled=!st.unlocked;
-  var g=document.getElementById("cgate");
-  g.innerHTML=st.unlocked?"":('Đã nghe '+Math.round(cov*100)+'% của 12 giây trước vạch đỏ<span class="bar"><i style="width:'+Math.round(Math.min(1,cov/0.85)*100)+'%"></i></span>'+(ok?"✔":"cần ≥ 85%"));
-  var u=document.getElementById("cunlock"),why=document.getElementById("cwhy");
-  u.classList.toggle("hide",st.unlocked);
-  u.disabled=!(ok&&done);
-  if(!st.unlocked){why.style.color="";why.textContent=ok&&done?"":(!ok?"Nghe đủ phần trước vạch đỏ trước.":"Trả lời đủ 3 câu ở tab “Đà nói”.");}else why.textContent="";
-  var tb=document.getElementById("tb-tcontent");
-  if(tb){var nn=tb.querySelector(".n");tb.firstChild.nodeValue=(st.unlocked?"":"🔒 ")+"Nội dung";}
-  document.getElementById("marks").classList.toggle("hide",!st.unlocked);
-  var h="";
+  var c=CTX[cur.id],st=cst(cur),h="";
   c.segs.forEach(function(g){
-    if(g.after&&!st.unlocked)return;
-    var isU=g.spk===c.user,mask=g.hide&&!st.unlocked;
-    h+='<div class="tl'+(mask?' mask':'')+(g.after?' aft':'')+'"><span class="who'+(isU?' u':'')+'">'+who(g.spk)+(isU?' ★':'')+'</span><span class="tx">'+(mask?'▒▒▒ lượt này đang diễn ra tại vạch đỏ, chỉ nghe, chưa xem chữ':esc(g.text))+(g.after?' <small>(sau vạch đỏ)</small>':'')+'</span></div>';
+    if(g.e>st.max+0.05)return;
+    var isU=g.spk===c.user;
+    h+='<div class="tl"><span class="who'+(isU?' u':'')+'">'+who(g.spk)+(isU?' ★':'')+'</span><span class="tx">'+esc(g.text)+'</span></div>';
   });
-  document.getElementById("ctrs").innerHTML=h;
+  var el=document.getElementById("ctrs");if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h;}
+  document.getElementById("marks").classList.add("hide");
   draw();
-}
-function mark(s){
-  var st=cst(s),i=Math.floor(audio.currentTime/BIN);
-  if(audio.currentTime<s.cut||st.unlocked)st.bins[i]=1;
 }
 setInterval(function(){
   if(!cur||!cur.ctx||!audio||audio.paused)return;
-  var st=cst(cur);
-  if(!st.unlocked&&audio.currentTime>=cur.cut){audio.pause();audio.currentTime=cur.cut-0.05;setPlayIcon(false);}
-  mark(cur);
-  var ct=audio.currentTime,last=st.last==null?ct:st.last;
+  var st=cst(cur),ct=audio.currentTime,last=st.last==null?ct:st.last;
   if(autoPause()&&ct-last<0.3){
-    var hit=null;CTX[cur.id].vad.forEach(function(v){if(v>last+0.001&&v<=ct&&(st.unlocked||v<cur.cut)&&(hit==null||v<hit))hit=v;});
-    if(hit!=null){audio.pause();audio.currentTime=hit;setPlayIcon(false);ct=hit;ctxNote("Đã dừng ở điểm kết thúc âm thanh ("+hit.toFixed(2).replace(".",",")+" giây). Chọn đáp án nếu đã đủ căn cứ, hoặc bấm ▶ để nghe tiếp.");document.getElementById("cwhy").style.color="#1a73e8";}
+    var hit=null,hm=0,M=CTX[cur.id].moc;
+    M.forEach(function(v,i){if(v>last+0.001&&v<=ct&&hit==null){hit=v;hm=i+1;}});
+    if(hit!=null){audio.pause();audio.currentTime=hit;setPlayIcon(false);ct=hit;setMoc(hm,false);}
   }
   st.last=ct;
-  if(!st.unlocked){var t=Date.now();if(!st.t||t-st.t>500){st.t=t;ctxRefresh();}}
+  if(ct>st.max){st.max=ct;if(!st.t||Date.now()-st.t>400){st.t=Date.now();ctxRefresh();}}
 },40);
 (function(){
   function on(id,f){document.getElementById(id).addEventListener("click",f);}
   function play(){try{var pr=audio.play();if(pr&&pr.catch)pr.catch(function(){});setPlayIcon(true);}catch(e){}}
   on("cb0",function(){stopDoc();seek(0);play();});
-  on("cb4",function(){stopDoc();seek(cur.cut-4);play();});
-  on("cb5",function(){stopDoc();seek(cur.cut);play();});
-  on("cunlock",function(){var st=cst(cur);st.unlocked=true;st.unlockedAt=new Date().toISOString();audio.pause();setPlayIcon(false);ctxRefresh();showPanel("tcontent");});
-  panelsEl.addEventListener("change",ctxRefresh);
+  on("cb4",function(){stopDoc();seek(CTX[cur.id].moc[curMoc-1]-4);play();});
 })();
-function ctxExport(){
-  var c=CTX[cur.id],st=cst(cur);
-  return {cut_sec:c.cut,user:c.user,unlocked:st.unlocked,unlocked_at:st.unlockedAt||null,coverage_pre_cut:Math.round(coverage(cur)*100)/100,vad_points:c.vad,auto_pause:autoPause()};
-}
-function autoPause(){var e=document.getElementById("capause");return !e||e.checked;}
+function ctxExport(){var c=CTX[cur.id];return {user:c.user,moc_sec:c.moc,auto_pause:autoPause(),heard_until_sec:Math.round(cst(cur).max*100)/100};}
 function drawCtx(w,h){
-  var c=CTX[cur.id],st=cst(cur),dur=audio&&audio.duration?audio.duration:c.dur,k=h/104,X=function(t){return t/dur*w;};
-  var cutX=X(c.cut),lim=st.unlocked?dur:c.cut,acc=css("--accent"),grey="#9aa0a6";
+  var c=CTX[cur.id],dur=audio&&audio.duration?audio.duration:c.dur,X=function(t){return t/dur*w;};
+  var acc=css("--accent"),p=c.peaks,n=p.length,bw=w/n,prog=audio&&audio.duration?audio.currentTime/dur:0;
+  for(var i=0;i<n;i++){var bh=Math.max(3,p[i]*(h-6));ctx.fillStyle=(i/n<prog)?acc:css("--wave");ctx.fillRect(i*bw+1,(h-bh)/2,Math.max(1,bw-2),bh);}
   ctx.font="11px sans-serif";ctx.textBaseline="top";
-  function lab(t,y){ctx.fillStyle="#80868b";ctx.fillText(t,4,y);}
-  // sóng
-  var p=c.peaks,n=p.length,bw=w/n,prog=audio&&audio.duration?audio.currentTime/dur:0;
-  for(var i=0;i<n;i++){var tt=i/n*dur,bh=Math.max(2,p[i]*40*k);ctx.fillStyle=(tt>=lim)?"#eceff1":(i/n<prog?acc:css("--wave"));ctx.fillRect(i*bw+1,(46*k-bh)/2+2,Math.max(1,bw-2),bh);}
-  // hai làn người nói
-  var lanes={S0:54*k,S1:72*k},lh=14*k;
-  lab("Người A",lanes.S0-1*k);lab("Người B",lanes.S1-1*k);
-  c.segs.forEach(function(g){
-    if(g.s>=lim)return;var e=Math.min(g.e,lim);
-    ctx.fillStyle=(g.spk===c.user)?acc:grey;ctx.globalAlpha=(g.hide&&!st.unlocked)?0.45:0.9;
-    ctx.fillRect(Math.max(48,X(g.s)),lanes[g.spk]+10*k,Math.max(2,X(e)-Math.max(48,X(g.s))),lh*0.6);ctx.globalAlpha=1;
+  c.moc.forEach(function(v,i){
+    var x=X(v),on=(i+1===curMoc);
+    ctx.setLineDash([4,3]);ctx.strokeStyle=on?acc:"#5f6368";ctx.lineWidth=on?2:1;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=1;
+    ctx.fillStyle=on?acc:"#5f6368";ctx.fillText(String(i+1),Math.min(w-8,x+3),2);
   });
-  function owner(t){var o=null;c.segs.forEach(function(g){if(t>=g.s&&t<g.e){o=(o==="u"||g.spk===c.user)?"u":"o";}});return o;}
-  // vạch VAD: điểm kết thúc âm thanh (bắt đầu quãng lặng); phát tới đây sẽ tự dừng
-  ctx.setLineDash([4,3]);ctx.strokeStyle="#5f6368";ctx.lineWidth=1;
-  c.vad.forEach(function(v){if(v>=lim)return;var x=X(v);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();});
-  ctx.setLineDash([]);
-  // vùng khoá + vạch đỏ
-  if(!st.unlocked){ctx.fillStyle="rgba(236,239,241,.85)";ctx.fillRect(cutX,0,w-cutX,h);ctx.fillStyle="#5f6368";ctx.fillText("🔒 phần sau vạch đỏ",Math.min(cutX+6,w-120),4);}
-  ctx.fillStyle="#d93025";ctx.fillRect(cutX-1,0,2,h);ctx.fillText("vạch đỏ",Math.max(0,cutX-46),4);
-  if(markT!=null&&st.unlocked){var mx=X(markT);ctx.fillStyle="#f9ab00";ctx.fillRect(mx-1,0,2,h);}
   if(audio&&audio.duration){ctx.fillStyle="#202124";ctx.fillRect(X(audio.currentTime)-1,0,2,h);}
 }
-
 var box=document.getElementById("samples");
 function renderSamples(){
   box.innerHTML="";
@@ -1923,10 +1806,10 @@ document.getElementById("mkx").addEventListener("click",function(){setMark(null)
   box.insertBefore(inp,b);
   b.addEventListener("click",function(){
     var ans={},missing=[],n=0;
-    activePanels.forEach(function(p){p.qs.forEach(function(q){
-      var c=panelsEl.querySelector('input[name="'+q.id+'"]:checked');
-      if(c){ans[(p.id+"."+q.id)]=c.value;n++;}else missing.push(p.id+"."+q.id);
-    });});
+    activePanels.forEach(function(p){sufs(p).forEach(function(sf){p.qs.forEach(function(q){
+      var c=panelsEl.querySelector('input[name="'+q.id+sf+'"]:checked');
+      if(c){ans[(p.id+"."+q.id+sf)]=c.value;n++;}else missing.push(p.id+"."+q.id+sf);
+    });});});
     var rec={sample_id:cur.id,audio:cur.src,tags:cur.tags,source:cur.source||null,user:cur.user||null,annotator:inp.value.trim()||null,
       answered_at:new Date().toISOString(),answers:ans,marks:{turn_end_sec:markT==null?null:Math.round(markT*100)/100},missing:missing};
     if(cur.ctx)rec.ctx=ctxExport();
