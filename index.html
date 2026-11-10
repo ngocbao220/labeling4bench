@@ -1629,48 +1629,6 @@ document.getElementById("doc").addEventListener("click",function(e){
     var pr=dAudio.play();if(pr&&pr.catch)pr.catch(function(){stopDoc();});
   }catch(x){stopDoc();}
 });
-var box=document.getElementById("samples");
-function renderSamples(){
-  box.innerHTML="";
-SAMPLES.forEach(function(s,ix){
-  var b=document.createElement("button");b.type="button";b.className="sample";b.dataset.n=s.id;b.setAttribute("aria-pressed","false");
-  b.innerHTML="<b>Mẫu "+(ix+1)+"</b><span class=\"sub\">"+esc(s.label)+"</span><div class=\"tags\">"+s.tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join("")+"</div>";
-  b.addEventListener("click",function(){load(s);if(window.innerWidth<=860){try{document.getElementById("ptitle").scrollIntoView({block:"start"});}catch(e){}}});
-  box.appendChild(b);
-});
-
-  var f=document.getElementById("flt"),cnt={};f.innerHTML="";
-  SAMPLES.forEach(function(s){s.tags.forEach(function(t){cnt[t]=(cnt[t]||0)+1;});});
-  var opts=[["all","Tất cả ("+SAMPLES.length+")"]].concat(Object.keys(cnt).map(function(k){return [k,k+" ("+cnt[k]+")"];}));
-  opts.forEach(function(o,i){
-    var b=document.createElement("button");b.type="button";b.dataset.f=o[0];b.textContent=o[1];b.setAttribute("aria-pressed",i===0?"true":"false");
-    b.addEventListener("click",function(){apply(o[0]);});f.appendChild(b);
-  });
-  function apply(k){
-    f.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.f===k?"true":"false");});
-    var first=null,curOk=false;
-    SAMPLES.forEach(function(s){
-      var ok=k==="all"||s.tags.indexOf(k)>=0;
-      box.querySelector('.sample[data-n="'+s.id+'"]').classList.toggle("hide",!ok);
-      if(ok&&!first)first=s;
-      if(ok&&cur&&cur.id===s.id)curOk=true;
-    });
-    if(!curOk&&first)load(first);
-    box.scrollTop=0;
-  }
-}
-renderSamples();
-load(SAMPLES[0]);
-/* Có server và có manifest: thay danh sách mẫu bằng các segment trong manifests/*.jsonl */
-fetch("api/samples",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){
-  if(!j.samples||!j.samples.length)return;
-  SAMPLES=j.samples.map(function(r){return {id:r.event_id,label:(r.event_auto||"")+" · "+String(r.user_text||"").slice(0,40),
-    tags:["turntaking"],src:r.audio,user:r.user,source:(r.bucket||[]).join(", ")||null,
-    markAuto:r.marks_auto?r.marks_auto.turn_end_sec:null};}).concat([]);SAMPLES=CTXS.concat(SAMPLES);
-  renderSamples();load(SAMPLES[0]);
-}).catch(function(){});
-
-
 /* ---- Ngữ cảnh + đà nói khách quan ---- */
 var CST={};
 function cst(s){return CST[s.id]||(CST[s.id]={bins:{},unlocked:false});}
@@ -1794,6 +1752,48 @@ function drawCtx(w,h){
   if(markT!=null&&st.unlocked){var mx=X(markT);ctx.fillStyle="#f9ab00";ctx.fillRect(mx-1,0,2,h);}
   if(audio&&audio.duration){ctx.fillStyle="#202124";ctx.fillRect(X(audio.currentTime)-1,0,2,h);}
 }
+
+var box=document.getElementById("samples");
+function renderSamples(){
+  box.innerHTML="";
+SAMPLES.forEach(function(s,ix){
+  var b=document.createElement("button");b.type="button";b.className="sample";b.dataset.n=s.id;b.setAttribute("aria-pressed","false");
+  b.innerHTML="<b>Mẫu "+(ix+1)+"</b><span class=\"sub\">"+esc(s.label)+"</span><div class=\"tags\">"+s.tags.map(function(t){return '<span class="tag">'+esc(t)+'</span>';}).join("")+"</div>";
+  b.addEventListener("click",function(){load(s);if(window.innerWidth<=860){try{document.getElementById("ptitle").scrollIntoView({block:"start"});}catch(e){}}});
+  box.appendChild(b);
+});
+
+  var f=document.getElementById("flt"),cnt={};f.innerHTML="";
+  SAMPLES.forEach(function(s){s.tags.forEach(function(t){cnt[t]=(cnt[t]||0)+1;});});
+  var opts=[["all","Tất cả ("+SAMPLES.length+")"]].concat(Object.keys(cnt).map(function(k){return [k,k+" ("+cnt[k]+")"];}));
+  opts.forEach(function(o,i){
+    var b=document.createElement("button");b.type="button";b.dataset.f=o[0];b.textContent=o[1];b.setAttribute("aria-pressed",i===0?"true":"false");
+    b.addEventListener("click",function(){apply(o[0]);});f.appendChild(b);
+  });
+  function apply(k){
+    f.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.f===k?"true":"false");});
+    var first=null,curOk=false;
+    SAMPLES.forEach(function(s){
+      var ok=k==="all"||s.tags.indexOf(k)>=0;
+      box.querySelector('.sample[data-n="'+s.id+'"]').classList.toggle("hide",!ok);
+      if(ok&&!first)first=s;
+      if(ok&&cur&&cur.id===s.id)curOk=true;
+    });
+    if(!curOk&&first)load(first);
+    box.scrollTop=0;
+  }
+}
+renderSamples();
+load(SAMPLES[0]);
+/* Có server và có manifest: thay danh sách mẫu bằng các segment trong manifests/*.jsonl */
+fetch("api/samples",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){
+  if(!j.samples||!j.samples.length)return;
+  SAMPLES=j.samples.map(function(r){return {id:r.event_id,label:(r.event_auto||"")+" · "+String(r.user_text||"").slice(0,40),
+    tags:["turntaking"],src:r.audio,user:r.user,source:(r.bucket||[]).join(", ")||null,
+    markAuto:r.marks_auto?r.marks_auto.turn_end_sec:null};}).concat([]);SAMPLES=CTXS.concat(SAMPLES);
+  renderSamples();load(SAMPLES[0]);
+}).catch(function(){});
+
 
 /* ---- Bật/tắt tài liệu ---- */
 (function(){
