@@ -214,3 +214,8 @@ Mốc trong `times`, tính theo giây trong clip:
 - **Phần chưa chạy thử với mô hình thật:** gọi Nemotron-Diarization (NeMo), zipformer (sherpa-onnx) và gửi audio vào vLLM. Kiểm tra lần đầu với `--limit` và `collect.buckets.*.target_minutes` nhỏ.
 - **Gán sự kiện tự động chỉ là gợi ý.** Chen ngang không chồng lời chỉ được bắt khi câu trước kết thúc bằng từ bỏ ngỏ ("mà", "thì", "là"…).
 - **Data CSKH** phải che thông tin cá nhân trước khi đưa cho người gán nhãn.
+
+## Mẫu có ngữ cảnh (đà nói)
+
+`tools/make_context.py` cắt clip ≥12 giây trước điểm cắt, đo cao độ (F0) và độ to bằng librosa, lấy lời các lượt trước và ghi `data/context.json` + `audio/ctx_N.mp3`.
+Trong trang, mẫu có ngữ cảnh chạy hai bước: (1) chỉ nghe/đọc tới vạch đỏ, trả lời tab “Đà nói” (`tpred`), (2) mở phần sau vạch đỏ rồi trả lời tab “Nội dung”. Bản ghi xuất thêm `ctx` (độ phủ khi nghe, thời điểm mở khoá, độ dốc F0/độ to cuối đoạn).

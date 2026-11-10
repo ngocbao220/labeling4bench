@@ -12,6 +12,7 @@ API:
   GET    /api/samples -> các segment trong manifests/*.jsonl có clip tồn tại (trang dùng thay danh sách mẫu cứng)
 Cấu hình lưu ở data/config.json (bản cũ giữ ở data/config.json.bak).
 """
+import re
 import glob, hmac, json, os, tempfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -87,9 +88,47 @@ class H(SimpleHTTPRequestHandler):
             rows = [r for r in rows if r.get("audio") and os.path.exists(os.path.join(ROOT, r["audio"]))]
             return self.send_json(200, {"samples": rows})
         # chỉ phục vụ trang, audio ví dụ và clip segment; không lộ server.py hay data/
-        if path in PUBLIC or path.startswith("/audio/") or path.startswith("/clips/"):
+        if path.startswith("/audio/") or path.startswith("/clips/"):
+            return self.send_media(path)
+        if path in PUBLIC:
             return super().do_GET()
         self.send_error(404)
+
+    def send_media(self, path):
+        """Phục vụ audio có hỗ trợ Range (trình duyệt cần để tua/đặt currentTime)."""
+        import mimetypes, posixpath
+        from urllib.parse import unquote
+        fp = os.path.normpath(os.path.join(ROOT, unquote(path).lstrip("/")))
+        if not fp.startswith(ROOT + os.sep) or not os.path.isfile(fp):
+            return self.send_error(404)
+        size = os.path.getsize(fp)
+        a, b, code = 0, size - 1, 200
+        m = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range", "").strip())
+        if m and (m.group(1) or m.group(2)):
+            if m.group(1):
+                a = int(m.group(1))
+                b = int(m.group(2)) if m.group(2) else size - 1
+            else:
+                a = max(0, size - int(m.group(2)))
+            b = min(b, size - 1)
+            if a > b:
+                self.send_response(416); self.send_header("Content-Range", "bytes */%d" % size); self.end_headers(); return
+            code = 206
+        self.send_response(code)
+        self.send_header("Content-Type", mimetypes.guess_type(fp)[0] or "application/octet-stream")
+        self.send_header("Accept-Ranges", "bytes")
+        if code == 206:
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (a, b, size))
+        self.send_header("Content-Length", str(b - a + 1))
+        self.end_headers()
+        with open(fp, "rb") as f:
+            f.seek(a)
+            left = b - a + 1
+            while left > 0:
+                chunk = f.read(min(65536, left))
+                if not chunk:
+                    break
+                self.wfile.write(chunk); left -= len(chunk)
 
     def do_PUT(self):
         if self.path.split("?")[0] != "/api/config":

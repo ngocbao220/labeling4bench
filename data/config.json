@@ -2,6 +2,82 @@
  "panels": {
   "turntaking": [
    {
+    "id": "tpred",
+    "name": "Đà nói",
+    "intro": "Bước 1. Chỉ dựa vào âm thanh và lời tới vạch đỏ (điểm cắt). Đừng đoán theo nghĩa của câu cuối.",
+    "qs": [
+     {
+      "id": "momentum",
+      "codes": [
+       "CLOSING",
+       "CARRYING",
+       "HESITANT",
+       "UNK"
+      ],
+      "title": "Ngay trước vạch đỏ, đà nói của người dùng đang thế nào?",
+      "desc": "Nghe giọng, hơi và nhịp ở 3-4 giây cuối. Xem thêm hai đường cao độ và độ to.",
+      "opts": [
+       [
+        "Đang khép lại",
+        "Giọng hạ, nhỏ dần, nhịp chậm lại như sắp dừng"
+       ],
+       [
+        "Còn đà đi tiếp",
+        "Giọng và nhịp giữ nguyên hoặc đang dồn lên, chưa có dấu hiệu dừng"
+       ],
+       [
+        "Ngập ngừng",
+        "Kéo dài âm, “ờ”, “ừm”, nhịp đứt quãng, đang tìm lời"
+       ],
+       [
+        "Không rõ"
+       ]
+      ]
+     },
+     {
+      "id": "predict",
+      "codes": [
+       "PRED_STOP",
+       "PRED_CONT",
+       "UNK"
+      ],
+      "title": "Chỉ với những gì đã nghe, theo bạn người dùng sẽ làm gì ngay sau vạch đỏ?",
+      "opts": [
+       [
+        "Dừng lại, nhường lời"
+       ],
+       [
+        "Nói tiếp"
+       ],
+       [
+        "Không rõ"
+       ]
+      ]
+     },
+     {
+      "id": "basis",
+      "codes": [
+       "PROSODY",
+       "SEMANTIC",
+       "BOTH"
+      ],
+      "title": "Bạn dựa chủ yếu vào đâu để đoán?",
+      "opts": [
+       [
+        "Cách nói",
+        "Giọng, hơi, nhịp"
+       ],
+       [
+        "Ý nghĩa của câu vừa nói"
+       ],
+       [
+        "Cả hai như nhau"
+       ]
+      ]
+     }
+    ]
+   },
+   {
     "id": "tstyle",
     "name": "Phong cách",
     "intro": "Nhận xét chung về cuộc trò chuyện chứa lượt nói của người dùng.",
@@ -132,7 +208,7 @@
    {
     "id": "tcontent",
     "name": "Nội dung",
-    "intro": "Nghe kỹ vài giây cuối. Chỉ xét lượt nói của người dùng.",
+    "intro": "Bước 2. Sau khi mở phần sau vạch đỏ, chọn theo điều thực sự xảy ra tiếp theo.",
     "qs": [
      {
       "id": "event",
