@@ -29,6 +29,17 @@ for k, eid in enumerate(a.ids):
     user = "S" + str(int(r["user"].split("_")[-1]))
     uf = f0[(~np.isnan(f0)) & (np.arange(len(f0)) / FPS < cut)]
     med = float(np.median(uf)) if len(uf) else 150.0
+    # VAD năng lượng: điểm KẾT THÚC âm thanh = lúc bắt đầu một quãng lặng >= 0,3 s sau tiếng nói
+    lo_, hi_ = np.percentile(rms, 10), np.percentile(rms, 95)
+    sp = rms > lo_ + 0.35 * (hi_ - lo_)
+    vad, i = [], 0
+    while i < len(sp):
+        if not sp[i] and i > 0 and sp[i - 1]:
+            j = i
+            while j < len(sp) and not sp[j]: j += 1
+            if (j - i) / FPS >= 0.3 and j < len(sp): vad.append(round(i / FPS, 2))
+            i = j
+        else: i += 1
     semi = [None if np.isnan(v) else round(12 * np.log2(v / med), 1) for v in f0]
     pk = np.abs(y[: len(y) // 150 * 150]).reshape(150, -1).max(1); pk = (pk / pk.max()).round(3).tolist()
     segs = []
@@ -42,7 +53,7 @@ for k, eid in enumerate(a.ids):
     open_ = f"audio/ctx_{n}.mp3"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t0), "-t", str(t1 - t0), "-i", f"{a.dir}/{a.conv}.wav", "-ac", "1", "-b:a", "48k", open_], check=True)
     out.append({"id": n, "src": open_, "dur": round(t1 - t0, 2), "cut": round(cut, 2), "user": user, "peaks": pk,
-                "f0": semi, "rms": [round(float(v), 1) for v in rms], "fps": FPS, "segs": segs,
+                "vad": vad, "segs": segs,
                 "auto": {"event": ev, "event_id": r["event_id"]}})
 json.dump(out, open(a.out, "w"), ensure_ascii=False, separators=(",", ":"))
 print([(o["id"], o["auto"]["event"], o["cut"], o["user"], len(o["segs"])) for o in out])
