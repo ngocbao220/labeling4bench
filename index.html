@@ -388,7 +388,7 @@ var CTX = {"11":{"id":11,"src":"audio/ctx_11.mp3","dur":15.0,"cut":12.0,"user":"
 SAMPLES.forEach(function(s){s.src="audio/vi_du_"+s.id+".mp3";});
 var CTXS=Object.keys(CTX).map(function(k){var c=CTX[k];return {id:c.id,label:"Có ngữ cảnh",tags:["turntaking"],ctx:true,cut:c.cut,src:c.src,user:"Người nói "+(c.user==="S0"?"A":"B"),markAuto:null};});
 CTXS.forEach(function(s){PEAKS[s.id]=CTX[s.id].peaks;});
-SAMPLES=SAMPLES.concat(CTXS);
+SAMPLES=CTXS.concat(SAMPLES);
 function rot(a,k){k=k%a.length;return a.slice(k).concat(a.slice(0,k));}
 
 var SCALE_CONTENT=[
@@ -1666,7 +1666,7 @@ fetch("api/samples",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return
   if(!j.samples||!j.samples.length)return;
   SAMPLES=j.samples.map(function(r){return {id:r.event_id,label:(r.event_auto||"")+" · "+String(r.user_text||"").slice(0,40),
     tags:["turntaking"],src:r.audio,user:r.user,source:(r.bucket||[]).join(", ")||null,
-    markAuto:r.marks_auto?r.marks_auto.turn_end_sec:null};}).concat(CTXS);
+    markAuto:r.marks_auto?r.marks_auto.turn_end_sec:null};}).concat([]);SAMPLES=CTXS.concat(SAMPLES);
   renderSamples();load(SAMPLES[0]);
 }).catch(function(){});
 
