@@ -1,0 +1,384 @@
+{
+ "_doc": "Bộ câu hỏi duy nhất (server.py kiểm tra, web/index.html hiển thị). sections = 4 phương diện của temp.docx (+ mẫu). scope: pair = hỏi một lần cho cả cặp; channel = hỏi một lần cho mỗi người nói trong cả cặp; ipu = hỏi ở từng mốc; sample = mỗi mẫu. Bối cảnh, thiết bị, vai trò lấy từ configs/data/<nguồn>.yaml (meta), không hỏi. multi = chọn nhiều (giá trị là danh sách); optional = không tính vào tiến độ; gate = chọn đáp án đó thì mẫu bị bỏ qua. Giữ ổn định id và mã đáp án. layout \"rows\" ở phương diện: câu theo người nói xếp mỗi người một hàng thay vì bảng. inline = đáp án xếp trên một hàng. note = chú thích hiện ở đầu phương diện.",
+ "sections": [
+  {
+   "id": "style",
+   "title": "Phong cách",
+   "qs": [
+    {
+     "id": "topic",
+     "scope": "pair",
+     "text": "Loại cuộc trò chuyện",
+     "opts": [
+      [
+       "service",
+       "Chăm sóc khách hàng"
+      ],
+      [
+       "ads",
+       "Quảng cáo, chào hàng"
+      ],
+      [
+       "advice",
+       "Tư vấn, hỏi ý kiến"
+      ],
+      [
+       "interview",
+       "Phỏng vấn"
+      ],
+      [
+       "podcast",
+       "Talkshow, podcast"
+      ],
+      [
+       "gameshow",
+       "Gameshow, chương trình truyền hình"
+      ],
+      [
+       "chat",
+       "Trò chuyện bình thường"
+      ],
+      [
+       "work",
+       "Họp, bàn công việc"
+      ],
+      [
+       "teach",
+       "Dạy học, giảng giải"
+      ],
+      [
+       "other",
+       "Khác"
+      ]
+     ]
+    },
+    {
+     "id": "attitude",
+     "scope": "channel",
+     "text": "Thái độ, tâm trạng chung",
+     "opts": [
+      [
+       "natural",
+       "Bình thường, điềm tĩnh"
+      ],
+      [
+       "happy",
+       "Vui vẻ, nhiệt tình"
+      ],
+      [
+       "hurried",
+       "Vội vàng, sốt ruột"
+      ],
+      [
+       "annoyed",
+       "Bực bội, khó chịu"
+      ],
+      [
+       "sad",
+       "Buồn, chán nản"
+      ],
+      [
+       "hesitant",
+       "Lúng túng, do dự"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "voice",
+   "title": "Sắc thái giọng",
+   "qs": [
+    {
+     "id": "gender",
+     "scope": "channel",
+     "text": "Giới tính",
+     "opts": [
+      [
+       "F",
+       "Nữ"
+      ],
+      [
+       "M",
+       "Nam"
+      ],
+      [
+       "unk",
+       "Không rõ"
+      ]
+     ]
+    },
+    {
+     "id": "age",
+     "scope": "channel",
+     "text": "Độ tuổi",
+     "opts": [
+      [
+       "child",
+       "Trẻ con"
+      ],
+      [
+       "young",
+       "Thanh niên"
+      ],
+      [
+       "middle",
+       "Trung niên"
+      ],
+      [
+       "old",
+       "Cao tuổi"
+      ],
+      [
+       "unk",
+       "Không rõ"
+      ]
+     ]
+    },
+    {
+     "id": "region",
+     "scope": "channel",
+     "text": "Vùng miền",
+     "opts": [
+      [
+       "north",
+       "Bắc"
+      ],
+      [
+       "central",
+       "Trung"
+      ],
+      [
+       "south",
+       "Nam"
+      ],
+      [
+       "unk",
+       "Khác / không rõ"
+      ]
+     ]
+    }
+   ],
+   "layout": "rows"
+  },
+  {
+   "id": "env",
+   "title": "Âm thanh môi trường",
+   "qs": [
+    {
+     "id": "noise_level",
+     "scope": "channel",
+     "text": "Tiếng ồn nhiều hay ít?",
+     "opts": [
+      [
+       "none",
+       "Yên tĩnh"
+      ],
+      [
+       "light",
+       "Ồn nhẹ, giọng vẫn rõ"
+      ],
+      [
+       "medium",
+       "Ồn vừa"
+      ],
+      [
+       "heavy",
+       "Rất ồn, át cả tiếng nói"
+      ]
+     ]
+    },
+    {
+     "id": "environment",
+     "scope": "channel",
+     "text": "Tiếng ồn đó là gì?",
+     "opts": [
+      [
+       "quiet",
+       "Yên tĩnh"
+      ],
+      [
+       "office",
+       "Nhiều người nói chuyện"
+      ],
+      [
+       "street",
+       "Ngoài đường"
+      ],
+      [
+       "vehicle",
+       "Trên xe"
+      ],
+      [
+       "line_noise",
+       "Tiếng rè, sóng điện thoại kém"
+      ]
+     ]
+    }
+   ],
+   "layout": "rows",
+   "note": "Mẹo: bấm biểu tượng 🔊 ở đầu track của người bên kia để tắt tiếng họ, chỉ nghe tiếng xung quanh một người."
+  },
+  {
+   "id": "content",
+   "title": "Nội dung",
+   "qs": [
+    {
+     "id": "event",
+     "scope": "ipu",
+     "text": "Tại mốc này, người nói đang làm gì?",
+     "suggest": "event_auto",
+     "opts": [
+      [
+       "EOT",
+       "Nói xong, hết ý"
+      ],
+      [
+       "HOLD",
+       "Chưa nói xong, ngập ngừng"
+      ],
+      [
+       "BC",
+       "Tiếng đệm",
+       "Chỉ ừ, dạ, vâng… cho người kia biết mình đang nghe"
+      ],
+      [
+       "INT",
+       "Chen ngang",
+       "Nói chen vào khi người kia chưa nói xong"
+      ],
+      [
+       "WAIT",
+       "Bảo dừng, bảo chờ",
+       "Nói \"thôi, dừng lại, chờ tí, khoan\""
+      ],
+      [
+       "UNK",
+       "Không rõ"
+      ]
+     ]
+    },
+    {
+     "id": "last_word",
+     "scope": "ipu",
+     "text": "Nghe phần cuối câu, bạn cảm thấy người nói…",
+     "opts": [
+      [
+       "particle",
+       "Dứt khoát, đã trọn câu"
+      ],
+      [
+       "question",
+       "Đang hỏi, chờ bên kia trả lời"
+      ],
+      [
+       "connective",
+       "Bỏ lửng, câu còn treo"
+      ],
+      [
+       "filler",
+       "Ngập ngừng, kéo dài như đang nghĩ"
+      ]
+     ]
+    },
+    {
+     "id": "stop_kind",
+     "scope": "ipu",
+     "text": "Người nói tự dừng hay bị cắt giữa chừng?",
+     "opts": [
+      [
+       "self",
+       "Tự dừng"
+      ],
+      [
+       "interrupted",
+       "Bị người kia chen vào"
+      ],
+      [
+       "dropout",
+       "Mất tiếng, rớt sóng"
+      ],
+      [
+       "unk",
+       "Không rõ"
+      ]
+     ]
+    },
+    {
+     "id": "signs",
+     "scope": "ipu",
+     "multi": true,
+     "optional": true,
+     "text": "Có tiếng nào không phải lời nói không?",
+     "opts": [
+      [
+       "laugh",
+       "Cười, khúc khích"
+      ],
+      [
+       "sigh",
+       "Hít hơi mạnh, thở dài",
+       "thường là sắp nói tiếp một câu dài"
+      ],
+      [
+       "cough",
+       "Ho, tằng hắng, tặc lưỡi"
+      ]
+     ]
+    },
+    {
+     "id": "confidence",
+     "scope": "ipu",
+     "optional": true,
+     "text": "Bạn chắc chắn đến đâu?",
+     "opts": [
+      [
+       "1",
+       "1 · Gần như đoán"
+      ],
+      [
+       "2",
+       "2 · Hơi phân vân"
+      ],
+      [
+       "3",
+       "3 · Tạm được"
+      ],
+      [
+       "4",
+       "4 · Khá chắc"
+      ],
+      [
+       "5",
+       "5 · Rất chắc chắn"
+      ]
+     ],
+     "inline": true
+    }
+   ]
+  },
+  {
+   "id": "sample",
+   "title": "Mẫu",
+   "qs": [
+    {
+     "id": "quality",
+     "scope": "sample",
+     "optional": true,
+     "text": "Chất lượng âm thanh (chỉ đặt qua nút Bỏ qua mẫu)",
+     "gate": "unusable",
+     "opts": [
+      [
+       "ok",
+       "Gán được"
+      ],
+      [
+       "unusable",
+       "Không gán được"
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}
