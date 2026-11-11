@@ -4,127 +4,78 @@
    {
     "id": "tstyle",
     "name": "Phong cách",
-    "intro": "Nhận xét chung về cuộc trò chuyện chứa lượt nói của người dùng.",
+    "intro": "Phong cách giao tiếp của người dùng và bối cảnh của đoạn. Chọn theo cả đoạn.",
     "qs": [
      {
-      "id": "genre",
+      "id": "style",
+      "title": "Người dùng nói theo phong cách nào?",
+      "opts": [
+       [
+        "Quảng cáo, marketing",
+        "Giọng khỏe, tươi sáng, nhịp nhanh, nhấn mạnh dứt khoát để lôi cuốn"
+       ],
+       [
+        "Kể chuyện, nội dung sáng tạo",
+        "Giọng trầm ấm, giàu cảm xúc, ngữ điệu biến hoá để dẫn dắt (kể chuyện, thuyết minh, review, audiobook)"
+       ],
+       [
+        "Hội thoại đời thường",
+        "Tự nhiên, thả lỏng, gần gũi, không diễn, không gò bó"
+       ],
+       [
+        "Chính thống, trang trọng, phát biểu",
+        "Giọng trầm ổn, rõ chữ, nhịp chững chạc (thời sự, sự kiện, thuyết trình)"
+       ],
+       [
+        "Không xác định được"
+       ]
+      ],
       "codes": [
+       "ADS",
        "STORY",
+       "CONVO",
+       "FORMAL",
+       "UNK"
+      ]
+     },
+     {
+      "id": "domain",
+      "title": "Đoạn này thuộc bối cảnh nào?",
+      "opts": [
+       [
+        "Podcast, trò chuyện"
+       ],
+       [
+        "Phỏng vấn (YouTube, truyền hình)"
+       ],
+       [
+        "Chăm sóc khách hàng, gọi điện"
+       ],
+       [
+        "Phim, kịch, cảnh diễn"
+       ],
+       [
+        "Thuyết trình, bài giảng, bản tin"
+       ],
+       [
+        "Tranh luận, họp nhóm, livestream"
+       ],
+       [
+        "Đời thường (hỏi đáp, nói chuyện thường ngày)"
+       ],
+       [
+        "Khác"
+       ]
+      ],
+      "codes": [
+       "PODCAST",
        "INTERVIEW",
-       "SHARE",
-       "CHAT",
-       "DEBATE",
-       "LECTURE",
        "SERVICE",
        "SCENE",
-       "READ",
+       "LECTURE",
+       "DEBATE",
+       "DAILY",
        "OTHER"
-      ],
-      "title": "Cuộc trò chuyện thuộc kiểu nào?",
-      "opts": [
-       [
-        "Kể chuyện",
-        "Một người kể, người kia nghe"
-       ],
-       [
-        "Phỏng vấn",
-        "Một người hỏi, một người trả lời"
-       ],
-       [
-        "Chia sẻ",
-        "Nói về cảm nghĩ, kinh nghiệm của mình"
-       ],
-       [
-        "Trò chuyện thường",
-        "Hai bên nói qua lại tự nhiên"
-       ],
-       [
-        "Tranh luận, cãi nhau",
-        "Hai bên đối đáp gay gắt, hay chen lời"
-       ],
-       [
-        "Thuyết trình, giảng bài",
-        "Một người nói dài, ít người xen vào"
-       ],
-       [
-        "Hỏi đáp, tư vấn, chăm sóc khách hàng",
-        "Một bên hỏi việc, một bên hướng dẫn"
-       ],
-       [
-        "Cảnh phim, kịch",
-        "Lời thoại được dàn dựng"
-       ],
-       [
-        "Đọc bản tin, đọc truyện",
-        "Một người đọc to từ văn bản"
-       ],
-       [
-        "Kiểu khác"
-       ]
-      ]
-     },
-     {
-      "id": "accent",
-      "codes": [
-       "NORTH",
-       "CENTRAL",
-       "SOUTH",
-       "FOREIGN",
-       "UNK"
-      ],
-      "title": "Giọng vùng miền của người dùng",
-      "desc": "Chọn vùng nghe giống nhất.",
-      "opts": [
-       [
-        "Miền Bắc"
-       ],
-       [
-        "Miền Trung"
-       ],
-       [
-        "Miền Nam"
-       ],
-       [
-        "Giọng nước ngoài"
-       ],
-       [
-        "Không nghe rõ / không chắc"
-       ]
-      ]
-     },
-     {
-      "id": "age",
-      "codes": [
-       "CHILD",
-       "TEEN",
-       "YOUNG",
-       "MIDDLE",
-       "OLD",
-       "UNK"
-      ],
-      "title": "Độ tuổi người nói",
-      "desc": "Đoán theo giọng. Nhiều người nói thì chọn người nói chính.",
-      "opts": [
-       [
-        "Trẻ em",
-        "Dưới 13 tuổi"
-       ],
-       [
-        "Thanh thiếu niên",
-        "13 đến 19 tuổi"
-       ],
-       [
-        "20 đến 35 tuổi"
-       ],
-       [
-        "36 đến 55 tuổi"
-       ],
-       [
-        "Trên 55 tuổi"
-       ],
-       [
-        "Không nghe rõ / không chắc"
-       ]
       ]
      }
     ]
@@ -211,40 +162,151 @@
    {
     "id": "tvoice",
     "name": "Sắc thái giọng",
-    "intro": "Chọn theo giọng của người dùng ở cuối đoạn. Mẫu có nhiều mốc: trả lời riêng cho từng mốc.",
+    "intro": "Đặc tính của người dùng và cách họ nói. Câu có chữ “Ở mốc” trả lời riêng cho từng mốc.",
     "qs": [
      {
-      "id": "final_pitch",
-      "codes": [
-       "FALL",
-       "LEVEL",
-       "RISE"
-      ],
-      "title": "Giọng ở cuối câu thế nào?",
+      "id": "gender",
+      "title": "Giọng người dùng là nam hay nữ?",
       "opts": [
        [
-        "Hạ xuống"
+        "Nữ"
        ],
        [
-        "Giữ nguyên, lơ lửng"
+        "Nam"
        ],
        [
-        "Lên cao như câu hỏi"
+        "Không rõ"
        ]
+      ],
+      "codes": [
+       "FEMALE",
+       "MALE",
+       "UNK"
+      ]
+     },
+     {
+      "id": "age",
+      "title": "Người dùng thuộc độ tuổi nào?",
+      "opts": [
+       [
+        "Trẻ em",
+        "dưới khoảng 12"
+       ],
+       [
+        "Thiếu niên",
+        "khoảng 13 đến 18"
+       ],
+       [
+        "Thanh niên",
+        "khoảng 19 đến 35"
+       ],
+       [
+        "Trung niên",
+        "khoảng 36 đến 55"
+       ],
+       [
+        "Cao tuổi",
+        "trên khoảng 55"
+       ],
+       [
+        "Không rõ"
+       ]
+      ],
+      "codes": [
+       "CHILD",
+       "TEEN",
+       "YOUNG",
+       "MIDDLE",
+       "OLD",
+       "UNK"
+      ]
+     },
+     {
+      "id": "accent",
+      "title": "Giọng người dùng thuộc vùng miền nào?",
+      "opts": [
+       [
+        "Bắc"
+       ],
+       [
+        "Trung"
+       ],
+       [
+        "Nam"
+       ],
+       [
+        "Giọng nước ngoài, pha ngoại ngữ"
+       ],
+       [
+        "Không rõ"
+       ]
+      ],
+      "codes": [
+       "NORTH",
+       "CENTRAL",
+       "SOUTH",
+       "FOREIGN",
+       "UNK"
+      ]
+     },
+     {
+      "id": "speakers",
+      "title": "Trong đoạn này có mấy người đang nói?",
+      "opts": [
+       [
+        "Một người"
+       ],
+       [
+        "Hai người"
+       ],
+       [
+        "Từ ba người trở lên"
+       ]
+      ],
+      "codes": [
+       "ONE",
+       "TWO",
+       "MANY"
+      ]
+     },
+     {
+      "id": "physical",
+      "title": "Trạng thái giọng của người dùng thế nào?",
+      "opts": [
+       [
+        "Bình thường"
+       ],
+       [
+        "Đang khóc, nghẹn"
+       ],
+       [
+        "Đang cười"
+       ],
+       [
+        "Hụt hơi, thở gấp"
+       ],
+       [
+        "Thì thầm"
+       ],
+       [
+        "Khác"
+       ]
+      ],
+      "codes": [
+       "NORMAL",
+       "CRY",
+       "LAUGH",
+       "BREATHLESS",
+       "WHISPER",
+       "OTHER"
       ]
      },
      {
       "id": "emotion",
-      "codes": [
-       "HAPPY",
-       "SAD",
-       "NEUTRAL",
-       "ANGRY"
-      ],
-      "title": "Cảm xúc của câu nói là gì?",
+      "title": "Ở cuối đoạn, cảm xúc của người dùng là gì?",
       "opts": [
        [
-        "Vui"
+        "Vui, hào hứng"
        ],
        [
         "Buồn"
@@ -253,18 +315,43 @@
         "Bình thường"
        ],
        [
-        "Tức giận"
+        "Tức giận, bực"
+       ],
+       [
+        "Không rõ"
        ]
+      ],
+      "codes": [
+       "HAPPY",
+       "SAD",
+       "NEUTRAL",
+       "ANGRY",
+       "UNK"
+      ]
+     },
+     {
+      "id": "final_pitch",
+      "title": "Ở cuối đoạn, giọng người dùng đi thế nào?",
+      "opts": [
+       [
+        "Hạ xuống"
+       ],
+       [
+        "Giữ ngang, lơ lửng"
+       ],
+       [
+        "Lên cao như câu hỏi"
+       ]
+      ],
+      "codes": [
+       "FALL",
+       "LEVEL",
+       "RISE"
       ]
      },
      {
       "id": "final_volume",
-      "codes": [
-       "FADING",
-       "STEADY",
-       "LOUDER"
-      ],
-      "title": "Âm lượng ở cuối câu thế nào?",
+      "title": "Ở cuối đoạn, âm lượng thế nào?",
       "opts": [
        [
         "Nhỏ dần"
@@ -275,16 +362,16 @@
        [
         "To lên"
        ]
+      ],
+      "codes": [
+       "FADING",
+       "STEADY",
+       "LOUDER"
       ]
      },
      {
       "id": "final_speed",
-      "codes": [
-       "SLOWING",
-       "STEADY",
-       "FASTER"
-      ],
-      "title": "Tốc độ nói ở cuối câu thế nào?",
+      "title": "Ở cuối đoạn, tốc độ nói thế nào?",
       "opts": [
        [
         "Chậm lại"
@@ -295,6 +382,11 @@
        [
         "Nhanh lên"
        ]
+      ],
+      "codes": [
+       "SLOWING",
+       "STEADY",
+       "FASTER"
       ]
      }
     ]
@@ -302,98 +394,150 @@
    {
     "id": "tenv",
     "name": "Âm thanh môi trường",
-    "intro": "Điều kiện thu âm, để biết mô hình hỏng ở môi trường nào.",
+    "intro": "Chất lượng ghi âm và không gian xung quanh. Chọn theo cả đoạn.",
     "qs": [
      {
       "id": "audibility",
+      "title": "Chất lượng âm thanh để gán nhãn?",
+      "opts": [
+       [
+        "Rõ",
+        "nghe rõ lời, không cần cố"
+       ],
+       [
+        "Khó nghe nhưng vẫn gán được",
+        "có nhiễu, nói nhỏ, thu xa"
+       ],
+       [
+        "Không gán được",
+        "nghe hai lần vẫn không ra lời, hoặc mất tiếng, rè nặng"
+       ]
+      ],
       "codes": [
        "CLEAR",
        "NOISY_OK",
        "UNUSABLE"
-      ],
-      "title": "Nghe được lời của người dùng rõ đến đâu?",
+      ]
+     },
+     {
+      "id": "voice_origin",
+      "title": "Giọng có phải giọng thật của người nói không?",
       "opts": [
        [
-        "Nghe rõ"
+        "Giọng thật, tự nhiên"
        ],
        [
-        "Khó nghe nhưng vẫn gán được",
-        "Cứ chọn đáp án tốt nhất, đừng bỏ qua"
-       ],
-       [
-        "Không gán được",
-        "Chỉ chọn khi nghe 2 lần vẫn không ra lời"
+        "Giọng máy hoặc bị biến đổi",
+        "méo tiếng, đổi chất giọng, giọng tổng hợp"
        ]
+      ],
+      "codes": [
+       "NATURAL",
+       "ALTERED"
+      ]
+     },
+     {
+      "id": "bg_source",
+      "title": "Nghe thấy âm thanh nền nổi bật nhất là gì?",
+      "opts": [
+       [
+        "Không có âm thanh nền"
+       ],
+       [
+        "Người khác nói chuyện, đám đông"
+       ],
+       [
+        "Nhạc"
+       ],
+       [
+        "Xe cộ, tiếng đường phố"
+       ],
+       [
+        "Máy móc, quạt, điều hoà"
+       ],
+       [
+        "Thiên nhiên: mưa, gió, chim"
+       ],
+       [
+        "Nhiễu, rè của đường truyền"
+       ]
+      ],
+      "codes": [
+       "NONE",
+       "CROWD",
+       "MUSIC",
+       "TRAFFIC",
+       "MACHINE",
+       "NATURE",
+       "LINE"
+      ]
+     },
+     {
+      "id": "place",
+      "title": "Âm thanh nghe như được thu ở đâu?",
+      "opts": [
+       [
+        "Phòng yên tĩnh, phòng thu"
+       ],
+       [
+        "Trong nhà, nơi đông người (quán, văn phòng, trung tâm)"
+       ],
+       [
+        "Ngoài trời, ngoài đường"
+       ],
+       [
+        "Trên xe, tàu, phương tiện"
+       ],
+       [
+        "Không rõ"
+       ]
+      ],
+      "codes": [
+       "QUIET_ROOM",
+       "INDOOR_PUBLIC",
+       "OUTDOOR",
+       "VEHICLE",
+       "UNK"
       ]
      },
      {
       "id": "distance",
+      "title": "Người nói ở gần hay xa micro?",
+      "opts": [
+       [
+        "Gần, tiếng sát"
+       ],
+       [
+        "Vừa"
+       ],
+       [
+        "Xa, nghe vang hoặc nhỏ"
+       ]
+      ],
       "codes": [
        "NEAR",
        "MID",
        "FAR"
-      ],
-      "title": "Người dùng nói cách micro bao xa?",
-      "opts": [
-       [
-        "Gần",
-        "Giọng sát, rõ, ít vang"
-       ],
-       [
-        "Vừa",
-        "Nghe có không gian phòng"
-       ],
-       [
-        "Xa",
-        "Giọng nhỏ, vang hoặc lẫn tiếng phòng"
-       ]
-      ]
-     },
-     {
-      "id": "noise_type",
-      "codes": [
-       "QUIET",
-       "CROWD",
-       "MUSIC",
-       "MACHINE"
-      ],
-      "title": "Tiếng nền chính là gì?",
-      "opts": [
-       [
-        "Yên tĩnh"
-       ],
-       [
-        "Tiếng người xung quanh"
-       ],
-       [
-        "Nhạc nền"
-       ],
-       [
-        "Tiếng xe, máy móc, thiên nhiên"
-       ]
       ]
      },
      {
       "id": "channel",
+      "title": "Âm thanh nghe như thu qua thiết bị nào?",
+      "opts": [
+       [
+        "Mic thu sạch"
+       ],
+       [
+        "Điện thoại, cuộc gọi"
+       ],
+       [
+        "Loa ngoài, thu lại trong phòng"
+       ]
+      ],
       "codes": [
        "CLEAN_MIC",
        "PHONE",
        "SPEAKER_ROOM"
-      ],
-      "title": "Âm thanh được thu qua đâu?",
-      "opts": [
-       [
-        "Micro tốt",
-        "Giọng đầy, sạch"
-       ],
-       [
-        "Điện thoại, cuộc gọi",
-        "Giọng mỏng, như qua đường truyền"
-       ],
-       [
-        "Thu lại qua loa, trong phòng",
-        "Có tiếng vang, giọng bị bẹt"
-       ]
       ]
      }
     ]
